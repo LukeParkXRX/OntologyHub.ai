@@ -6,6 +6,43 @@ import Link from "next/link";
 export default function VersionPage() {
     const versions = [
         {
+            date: "2025-11-23",
+            version: "v0.3.0",
+            title: "배포 및 인증 시스템 구축",
+            features: [
+                {
+                    icon: Zap,
+                    name: "Vercel 프로덕션 배포",
+                    description: "OntologyHub.AI가 Vercel 플랫폼에 성공적으로 배포되었습니다. 전 세계 어디서나 빠르고 안정적으로 접속할 수 있습니다.",
+                },
+                {
+                    icon: Brain,
+                    name: "Google OAuth 인증 통합",
+                    description: "Google 계정으로 간편하게 로그인할 수 있는 OAuth 2.0 인증 시스템이 구축되었습니다. NextAuth.js를 활용하여 안전하고 편리한 사용자 인증을 제공합니다.",
+                },
+                {
+                    icon: Sparkles,
+                    name: "Supabase 데이터베이스 연동",
+                    description: "PostgreSQL 기반의 Supabase 데이터베이스가 연동되어 사용자 데이터와 그래프 정보를 안전하게 저장하고 관리할 수 있습니다.",
+                },
+                {
+                    icon: FileText,
+                    name: "환경 변수 관리 개선",
+                    description: "로컬 개발 환경과 프로덕션 환경의 환경 변수를 분리하여 관리합니다. 민감한 API 키와 시크릿은 안전하게 보호됩니다.",
+                },
+                {
+                    icon: Zap,
+                    name: "인증 리디렉션 문제 해결",
+                    description: "NextAuth 설정에서 커스텀 signIn 페이지 설정을 제거하여 무한 리디렉션 루프 문제를 해결했습니다. 로그인 프로세스가 정상적으로 작동합니다.",
+                },
+                {
+                    icon: Brain,
+                    name: "GitHub 저장소 연동",
+                    description: "소스 코드가 GitHub에 안전하게 저장되며, Vercel과 자동 배포 파이프라인이 구축되어 코드 변경 시 자동으로 재배포됩니다.",
+                },
+            ],
+        },
+        {
             date: "2025-11-22",
             version: "v0.2.0",
             title: "시각 효과 & 사용성 개선",
@@ -123,7 +160,7 @@ export default function VersionPage() {
                     <div className="flex items-center gap-4">
                         <div className="h-8 w-[1px] bg-white/10 hidden sm:block" />
                         <button className="text-xs font-medium px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 transition-all text-foreground/70">
-                            v0.2.0 Beta
+                            v0.3.0 Beta
                         </button>
                     </div>
                 </div>
