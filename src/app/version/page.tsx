@@ -6,6 +6,48 @@ import Link from "next/link";
 export default function VersionPage() {
     const versions = [
         {
+            date: "2025-12-05",
+            version: "v0.4.0",
+            title: "AI 프롬프트 엔지니어링 대폭 개선",
+            features: [
+                {
+                    icon: Brain,
+                    name: "관계 타입 온톨로지 정의",
+                    description: "50개 이상의 표준 관계 타입을 9개 카테고리로 분류하여 정의했습니다. 계층(is_a, subclass_of), 구성(part_of, contains), 인과(causes, enables), 속성(has_property), 연관(influences, depends_on), 시간(precedes, follows), 기능(performs, uses), 공간(located_in), 도메인별(manages, promotes) 관계를 포함하여 일관성 있는 그래프 생성이 가능합니다.",
+                },
+                {
+                    icon: Sparkles,
+                    name: "Few-Shot 학습 예시 추가",
+                    description: "Science, Business, Technology, Healthcare, Education 5개 도메인의 고품질 예시를 AI 프롬프트에 포함했습니다. 각 예시는 명확한 노드 구조, 표준 관계 타입 사용, 상세한 설명을 포함하여 AI가 도메인별로 더 정확한 온톨로지를 생성할 수 있도록 학습시킵니다.",
+                },
+                {
+                    icon: Zap,
+                    name: "자동 중복 노드 제거",
+                    description: "Levenshtein distance 알고리즘을 활용한 유사도 기반 중복 노드 감지 및 자동 병합 기능이 추가되었습니다. 85% 이상 유사한 노드는 자동으로 하나로 통합되며, 관련 엣지도 자동으로 재연결되어 깔끔한 그래프 구조를 유지합니다.",
+                },
+                {
+                    icon: Eye,
+                    name: "그래프 품질 메트릭 추적",
+                    description: "생성된 그래프의 품질을 실시간으로 측정하고 로깅합니다. 총 노드/엣지 수, 고립 노드 비율, 평균 엣지 수, explanation 완성도 등의 메트릭을 브라우저 콘솔에서 확인할 수 있어 AI 성능을 모니터링할 수 있습니다.",
+                },
+                {
+                    icon: FileText,
+                    name: "프롬프트 구조 개선",
+                    description: "AI 프롬프트를 120줄 이상의 상세한 지침으로 재구성했습니다. 표준 관계 타입 목록, Few-Shot 예시, 4단계 작업 지침, 명확한 출력 형식, MUST/SHOULD/MUST NOT 품질 제약, 6가지 검증 체크리스트를 포함하여 일관성 있고 고품질의 그래프를 생성합니다.",
+                },
+                {
+                    icon: Brain,
+                    name: "그래프 연결성 검증",
+                    description: "BFS(Breadth-First Search) 알고리즘을 사용하여 생성된 그래프의 연결성을 자동으로 검증합니다. 고립된 노드가 감지되면 경고 로그를 출력하여 AI 응답 품질을 모니터링할 수 있습니다.",
+                },
+                {
+                    icon: Palette,
+                    name: "예상 품질 향상",
+                    description: "이번 개선으로 관계 타입 일관성 80% 이상, 중복 노드 발생률 5% 이하, 도메인별 정확도 20-30% 향상이 예상됩니다. 사용자는 더 정확하고 이해하기 쉬운 지식 그래프를 경험할 수 있습니다.",
+                },
+            ],
+        },
+        {
             date: "2025-11-23",
             version: "v0.3.0",
             title: "배포 및 인증 시스템 구축",
@@ -160,7 +202,7 @@ export default function VersionPage() {
                     <div className="flex items-center gap-4">
                         <div className="h-8 w-[1px] bg-white/10 hidden sm:block" />
                         <button className="text-xs font-medium px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 transition-all text-foreground/70">
-                            v0.3.0 Beta
+                            v0.4.0 Beta
                         </button>
                     </div>
                 </div>
