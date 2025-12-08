@@ -232,6 +232,7 @@ export default function Home() {
             </Link>
             <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
               <a href="#" className="text-foreground/80 hover:text-primary transition-colors">Graph Engine</a>
+              <Link href="/domains" className="text-foreground/60 hover:text-primary transition-colors">My Domains</Link>
               <Link href="/version" className="text-foreground/60 hover:text-primary transition-colors">버전</Link>
               <Link href="/about" className="text-foreground/60 hover:text-primary transition-colors">About</Link>
             </nav>

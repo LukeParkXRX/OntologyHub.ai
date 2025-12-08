@@ -1,9 +1,47 @@
 "use client";
 
-import { Brain, Sparkles, Maximize2, Eye, Palette, Zap, FileText } from "lucide-react";
+import { Brain, Sparkles, Maximize2, Eye, Palette, Zap, FileText, Users, Globe, Cloud, Heart } from "lucide-react";
 import Link from "next/link";
 
 export default function VersionPage() {
+    const roadmap = [
+        {
+            phase: "Phase 1",
+            title: "기반 구축 & 사용자 경험",
+            description: "직관적인 그래프 에디터, 개인화된 저장소, 자연어 기반 생성 고도화",
+            status: "In Progress",
+            icon: Brain
+        },
+        {
+            phase: "Phase 2",
+            title: "지식 공유 & 협업",
+            description: "공유 링크 생성, 팀 워크스페이스, 버전 관리 시스템",
+            status: "Planned",
+            icon: Users
+        },
+        {
+            phase: "Phase 3",
+            title: "도메인 확장 & 통합",
+            description: "도메인별 템플릿, 그래프 병합(Merge), 공용 지식 베이스",
+            status: "Planned",
+            icon: Globe
+        },
+        {
+            phase: "Phase 4",
+            title: "API & SaaS 생태계",
+            description: "REST/GraphQL API, SDK 제공, 구독 모델 도입",
+            status: "Planned",
+            icon: Cloud
+        },
+        {
+            phase: "Phase 5",
+            title: "AI '존재' 구현",
+            description: "기억 메모리 시스템, 페르소나 모듈, 감정 및 공감 엔진",
+            status: "Vision",
+            icon: Heart
+        }
+    ];
+
     const versions = [
         {
             date: "2025-12-05",
@@ -216,22 +254,62 @@ export default function VersionPage() {
                     <div className="container max-w-4xl mx-auto px-6 text-center">
                         <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-sm font-medium text-primary mb-6">
                             <Sparkles className="h-3.5 w-3.5" />
-                            <span>버전 히스토리</span>
+                            <span>버전 히스토리 & 로드맵</span>
                         </div>
 
                         <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-white/90 to-white/50 mb-6">
-                            업데이트 내역
+                            비전 & 업데이트
                         </h1>
 
                         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                            OntologyHub.AI의 새로운 기능과 개선 사항을 확인하세요
+                            OntologyHub.AI는 AI에게 "존재"를 부여하기 위한 여정을 시작했습니다.
                         </p>
                     </div>
                 </section>
 
+                {/* Roadmap Section */}
+                <section className="py-12 border-b border-white/5">
+                    <div className="container max-w-6xl mx-auto px-6">
+                        <div className="text-center mb-12">
+                            <h2 className="text-3xl font-bold mb-4">Future Roadmap</h2>
+                            <p className="text-muted-foreground">우리가 나아갈 방향과 목표입니다</p>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {roadmap.map((item, index) => {
+                                const Icon = item.icon;
+                                return (
+                                    <div key={index} className={`p-6 rounded-2xl border bg-card/30 backdrop-blur-sm transition-all hover:border-primary/50 group ${item.status === "Vision" ? "lg:col-span-2 lg:col-start-2 border-primary/30 bg-primary/5" : "border-white/10"}`}>
+                                        <div className="flex items-start justify-between mb-4">
+                                            <div className={`p-3 rounded-lg ${item.status === "Vision" ? "bg-primary/20" : "bg-white/5"} group-hover:scale-110 transition-transform`}>
+                                                <Icon className={`h-6 w-6 ${item.status === "Vision" ? "text-primary" : "text-foreground/70"}`} />
+                                            </div>
+                                            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${item.status === "In Progress" ? "bg-blue-500/20 text-blue-400" :
+                                                    item.status === "Vision" ? "bg-primary/20 text-primary" :
+                                                        "bg-white/5 text-muted-foreground"
+                                                }`}>
+                                                {item.status}
+                                            </span>
+                                        </div>
+                                        <div className="mb-2">
+                                            <span className="text-xs font-semibold text-primary/80 uppercase tracking-wider">{item.phase}</span>
+                                            <h3 className="text-xl font-bold mt-1">{item.title}</h3>
+                                        </div>
+                                        <p className="text-sm text-muted-foreground leading-relaxed">
+                                            {item.description}
+                                        </p>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </section>
+
                 {/* Version Timeline */}
-                <section className="py-8">
+                <section className="py-16">
                     <div className="container max-w-4xl mx-auto px-6">
+                        <div className="text-center mb-12">
+                            <h2 className="text-3xl font-bold mb-4">Update History</h2>
+                        </div>
                         <div className="space-y-12">
                             {versions.map((version, versionIndex) => (
                                 <div key={version.date} className="relative">
