@@ -9,11 +9,15 @@ import type { CreateDomainDataInput } from '@/lib/domain-types';
  * GET /api/domains/[id]/data
  * List all data entries for a specific domain
  */
+// GET /api/domains/[id]/data
+// List all data entries for a specific domain
+
 export async function GET(
     request: Request,
-    { params }: { params: { id: string } }
+    props: { params: Promise<{ id: string }> }
 ) {
     try {
+        const params = await props.params;
         const supabase = getSupabaseClient();
         const user = await getCurrentUser(supabase);
 
@@ -70,11 +74,15 @@ export async function GET(
  * POST /api/domains/[id]/data
  * Add new data entry to a domain
  */
+// POST /api/domains/[id]/data
+// Add new data entry to a domain
+
 export async function POST(
     request: Request,
-    { params }: { params: { id: string } }
+    props: { params: Promise<{ id: string }> }
 ) {
     try {
+        const params = await props.params;
         const supabase = getSupabaseClient();
         const user = await getCurrentUser(supabase);
 
@@ -167,11 +175,15 @@ export async function POST(
  * DELETE /api/domains/[id]/data
  * Delete a data entry from a domain
  */
+// DELETE /api/domains/[id]/data
+// Delete a data entry from a domain
+
 export async function DELETE(
     request: Request,
-    { params }: { params: { id: string } }
+    props: { params: Promise<{ id: string }> }
 ) {
     try {
+        const params = await props.params;
         const supabase = getSupabaseClient();
         const user = await getCurrentUser(supabase);
 

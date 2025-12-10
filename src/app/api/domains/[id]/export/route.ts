@@ -10,11 +10,17 @@ import { ExportFormat, type ExportOptions, type GraphData } from '@/lib/domain-t
  * POST /api/domains/[id]/export
  * Export domain data in specified format
  */
+// POST /api/domains/[id]/export
+// Export domain data in specified format
+
 export async function POST(
     request: Request,
-    { params }: { params: { id: string } }
+    props: { params: Promise<{ id: string }> }
 ) {
+    let domainId = "";
     try {
+        const params = await props.params;
+        domainId = params.id;
         const supabase = getSupabaseClient();
         const user = await getCurrentUser(supabase);
 
@@ -25,7 +31,6 @@ export async function POST(
             );
         }
 
-        const domainId = params.id;
         const body: ExportOptions = await request.json();
         const { format, include_graphs = true, data_ids } = body;
 
@@ -116,7 +121,7 @@ export async function POST(
                 })),
                 exported_at: new Date().toISOString(),
             };
-            exportContent = exportToJSON(exportData);
+            exportContent = JSON.stringify(exportData, null, 2);
             contentType = 'application/json';
             fileExtension = 'json';
         } else if (format === ExportFormat.CSV) {
@@ -223,10 +228,10 @@ export async function POST(
         try {
             const supabase = getSupabaseClient();
             const user = await getCurrentUser(supabase);
-            if (user) {
+            if (user && domainId) {
                 await supabase.from('export_history').insert({
                     user_id: user.id,
-                    domain_id: params.id,
+                    domain_id: domainId,
                     format: ExportFormat.JSON,
                     status: 'failed',
                 });
