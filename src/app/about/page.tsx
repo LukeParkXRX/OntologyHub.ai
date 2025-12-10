@@ -26,7 +26,7 @@ export default function AboutPage() {
                     <div className="flex items-center gap-4">
                         <div className="h-8 w-[1px] bg-white/10 hidden sm:block" />
                         <button className="text-xs font-medium px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 transition-all text-foreground/70">
-                            v0.2.0 Beta
+                            v0.4.0 Beta
                         </button>
                     </div>
                 </div>
