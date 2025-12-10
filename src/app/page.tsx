@@ -1,31 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Brain, Sparkles, Loader2, Maximize2, Minimize2, X, Save, FolderOpen, Trash2, Share2 } from "lucide-react";
-import dynamic from "next/dynamic";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
-import AuthButton from "@/components/AuthButton";
-import SaveGraphDialog from "@/components/SaveGraphDialog";
-import GraphLibrary from "@/components/GraphLibrary";
+import dynamic from "next/dynamic";
 
-// Dynamically import GraphView to avoid SSR issues with Cytoscape
-const GraphView = dynamic(() => import("@/components/GraphView"), {
-  ssr: false,
-  loading: () => (
-    <div className="w-full h-[600px] border border-border rounded-lg bg-card flex items-center justify-center text-muted-foreground">
-      그래프 엔진 초기화 중...
-    </div>
-  ),
-});
-
-// Dynamically import NetworkBackground to avoid SSR issues with Canvas
+// Dynamically import NetworkBackground
 const NetworkBackground = dynamic(() => import("@/components/NetworkBackground"), {
-  ssr: false,
-});
-
-// Dynamically import GraphLoadingAnimation
-const GraphLoadingAnimation = dynamic(() => import("@/components/GraphLoadingAnimation"), {
   ssr: false,
 });
 
@@ -33,448 +13,153 @@ const FloatingLines = dynamic(() => import("@/components/FloatingLines"), {
   ssr: false,
 });
 
-export default function Home() {
-  const [inputText, setInputText] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [graphData, setGraphData] = useState<any>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<any>(null);
-  const [currentDepth, setCurrentDepth] = useState(0);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isAnimationFading, setIsAnimationFading] = useState(false);
-  const [showSaveDialog, setShowSaveDialog] = useState(false);
-  const [showLibrary, setShowLibrary] = useState(false);
+export default function LandingPage() {
+  const [accessCode, setAccessCode] = useState("");
+  const [showAccess, setShowAccess] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleGenerate = async () => {
-    if (!inputText.trim()) return;
-
-    setLoading(true);
-    setIsGenerating(true);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ text: inputText }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to generate graph");
-      }
-
-      console.log('[handleGenerate] Received data from API:', data);
-      console.log('[handleGenerate] Data structure valid:', !!(data?.elements?.nodes && data?.elements?.edges));
-
-      // Wait for animation to complete (1.2s)
-      setTimeout(() => {
-        setGraphData((prev: any) => {
-          // If no previous graph, initialize with depth 0
-          if (!prev) {
-            console.log('[handleGenerate] Initializing new graph');
-            const nodesWithDepth = data.elements.nodes.map((n: any) => ({
-              ...n,
-              data: { ...n.data, depth: 0, role: n.data.label === inputText ? 'root' : undefined }
-            }));
-
-            const edgesWithDepth = data.elements.edges.map((e: any) => ({
-              ...e,
-              data: { ...e.data, depth: 0 }
-            }));
-
-            setCurrentDepth(0);
-            const newGraphData = {
-              elements: {
-                nodes: nodesWithDepth,
-                edges: edgesWithDepth
-              }
-            };
-            console.log('[handleGenerate] New graph data:', newGraphData);
-            return newGraphData;
-          }
-
-          // Expansion - increment depth
-          console.log('[handleGenerate] Expanding existing graph');
-          const nextDepth = currentDepth + 1;
-          setCurrentDepth(nextDepth);
-
-          // Identify the source of expansion from the input text
-          const idMatch = inputText.match(/ID:\s*([a-zA-Z0-9_]+)/);
-          const sourceId = idMatch ? idMatch[1] : null;
-          console.log('[handleGenerate] Source ID for expansion:', sourceId);
-
-          // Simple merge strategy: concatenate nodes and edges, avoiding duplicates by ID
-          const existingNodeIds = new Set(prev.elements.nodes.map((n: any) => n.data.id));
-          const existingEdgeIds = new Set(prev.elements.edges.map((e: any) => e.data.source + "-" + e.data.target + "-" + e.data.label));
-
-          // Update existing nodes: Mark the source node as "expanded"
-          const existingNodes = prev.elements.nodes.map((n: any) => {
-            if (n.data.id === sourceId) {
-              return { ...n, data: { ...n.data, expanded: true } };
-            }
-            return n;
-          });
-
-          const newNodes = data.elements.nodes
-            .filter((n: any) => !existingNodeIds.has(n.data.id))
-            .map((n: any) => ({
-              ...n,
-              data: { ...n.data, depth: nextDepth }
-            }));
-
-          // Create a set of ALL valid node IDs (existing + new)
-          const allValidNodeIds = new Set([...existingNodeIds, ...newNodes.map((n: any) => n.data.id)]);
-
-          // Filter new edges: must be unique AND have valid source/target
-          const newEdges = data.elements.edges
-            .filter((e: any) => {
-              const edgeKey = e.data.source + "-" + e.data.target + "-" + e.data.label;
-              return !existingEdgeIds.has(edgeKey) &&
-                allValidNodeIds.has(e.data.source) &&
-                allValidNodeIds.has(e.data.target);
-            })
-            .map((e: any) => ({
-              ...e,
-              data: { ...e.data, depth: nextDepth }
-            }));
-
-          console.log('[handleGenerate] Added', newNodes.length, 'new nodes and', newEdges.length, 'new edges');
-
-          return {
-            elements: {
-              nodes: [...existingNodes, ...newNodes],
-              edges: [...prev.elements.edges, ...newEdges],
-            }
-          };
-        });
-      }, 1200);
-    } catch (err: any) {
-      console.error("Generation Error:", err);
-      const errorMessage = err instanceof Event ? "A network or resource error occurred." : (err.message || "An unexpected error occurred");
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-      // Start fade out
-      setIsAnimationFading(true);
-      // Wait for fade out animation (700ms) then remove component
-      setTimeout(() => {
-        setIsGenerating(false);
-        setIsAnimationFading(false);
-      }, 700);
+  const handleAccess = () => {
+    // Simple access code for development
+    if (accessCode === "xrx2024" || accessCode === "ontology") {
+      window.location.href = "/workspace";
+    } else {
+      setError("잘못된 접근 코드입니다.");
+      setTimeout(() => setError(""), 3000);
     }
   };
 
-  const handleNodeClick = (nodeData: any) => {
-    // Set selected item to show details
-    setSelectedItem({ type: 'node', data: nodeData });
-
-    // Populate input text with expansion prompt
-    const expansionText = "Expand on the concept '" + nodeData.label + "' (ID: " + nodeData.id + "). Find related sub-concepts, examples, or detailed relationships to enrich the ontology.";
-    setInputText(expansionText);
-  };
-
-  const handleEdgeClick = (edgeData: any) => {
-    // Set selected item to show relationship details
-    setSelectedItem({ type: 'edge', data: edgeData });
-  };
-
-  const handleClear = () => {
-    setGraphData(null);
-    setInputText("");
-    setError(null);
-    setSelectedItem(null);
-  };
-
   return (
-    <>
-      {/* Fullscreen Graph Overlay */}
-      {isFullscreen && graphData ? (
-        <div className="fixed inset-0 z-[100] bg-[#020617]">
-          <GraphView
-            key="graph-fullscreen"
-            elements={graphData.elements}
-            onNodeClick={handleNodeClick}
-            onEdgeClick={handleEdgeClick}
-            isFullscreen={true}
-          />
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      {/* Background Effects */}
+      <NetworkBackground />
+      <FloatingLines />
+
+      {/* Gradient Overlays */}
+      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-slate-950/40 pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-cyan-900/20 via-transparent to-transparent pointer-events-none" />
+
+      {/* Main Content */}
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-6 text-center">
+
+        {/* Logo & Title */}
+        <div className="mb-8 animate-fade-in">
+          <div className="inline-flex items-center justify-center w-24 h-24 mb-6 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 border border-cyan-500/30 backdrop-blur-sm">
+            <svg className="w-12 h-12 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="12" cy="12" r="3" />
+              <circle cx="12" cy="4" r="2" />
+              <circle cx="20" cy="12" r="2" />
+              <circle cx="12" cy="20" r="2" />
+              <circle cx="4" cy="12" r="2" />
+              <line x1="12" y1="7" x2="12" y2="9" />
+              <line x1="15" y1="12" x2="18" y2="12" />
+              <line x1="12" y1="15" x2="12" y2="18" />
+              <line x1="6" y1="12" x2="9" y2="12" />
+            </svg>
+          </div>
+          <h1 className="text-5xl md:text-7xl font-bold bg-gradient-to-r from-white via-cyan-200 to-purple-200 bg-clip-text text-transparent mb-4">
+            OntologyHub.AI
+          </h1>
+          <p className="text-xl md:text-2xl text-slate-400 font-light">
+            AI-Powered Knowledge Graph Platform
+          </p>
+        </div>
+
+        {/* Status Badge */}
+        <div className="mb-12 animate-fade-in-delay">
+          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm font-medium">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            개발 중 (Coming Soon)
+          </span>
+        </div>
+
+        {/* Description */}
+        <div className="max-w-2xl mb-12 animate-fade-in-delay-2">
+          <p className="text-lg text-slate-300 leading-relaxed mb-6">
+            자연어를 입력하면 AI가 자동으로 지식 그래프를 생성합니다.
+            <br />
+            복잡한 개념과 관계를 시각적으로 탐색하고 확장하세요.
+          </p>
+          <div className="flex flex-wrap justify-center gap-3 text-sm text-slate-500">
+            <span className="px-3 py-1 rounded-full bg-slate-800/50 border border-slate-700/50">지식 그래프 자동 생성</span>
+            <span className="px-3 py-1 rounded-full bg-slate-800/50 border border-slate-700/50">온톨로지 기반 구조화</span>
+            <span className="px-3 py-1 rounded-full bg-slate-800/50 border border-slate-700/50">AI 확장 탐색</span>
+          </div>
+        </div>
+
+        {/* Access Section */}
+        {!showAccess ? (
           <button
-            onClick={() => setIsFullscreen(false)}
-            className="fixed top-4 right-4 z-[101] h-10 px-4 rounded-lg bg-black/60 hover:bg-black/80 border border-white/20 backdrop-blur-sm text-sm font-medium transition-all flex items-center gap-2 text-white"
+            onClick={() => setShowAccess(true)}
+            className="group relative px-8 py-4 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-xl font-semibold text-white shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-all duration-300 hover:scale-105"
           >
-            <X className="h-4 w-4" />
-            Close Fullscreen
+            <span className="relative z-10">얼리 액세스 신청</span>
+            <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-400 to-purple-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-xl" />
           </button>
-        </div>
-      ) : null}
-
-      {/* Main Page */}
-      <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary/30">
-        {/* Background Effect */}
-        <div className="fixed inset-0 z-0 pointer-events-none">
-          <FloatingLines />
-        </div>
-        {/* Header */}
-        <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-background/60 backdrop-blur-xl supports-[backdrop-filter]:bg-background/30">
-          <div className="container flex h-16 max-w-screen-2xl items-center justify-between px-6">
-            <Link href="/" className="flex items-center gap-2 group cursor-pointer">
-              <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                <Brain className="h-5 w-5 text-primary" />
-                <div className="absolute inset-0 rounded-lg bg-primary/20 blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-              <span className="font-bold text-lg tracking-tight text-foreground/90 group-hover:text-foreground transition-colors">
-                OntologyHub<span className="text-primary">.AI</span>
-              </span>
-            </Link>
-            <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
-              <a href="#" className="text-foreground/80 hover:text-primary transition-colors">Graph Engine</a>
-              <Link href="/domains" className="text-foreground/60 hover:text-primary transition-colors">My Domains</Link>
-              <Link href="/version" className="text-foreground/60 hover:text-primary transition-colors">버전</Link>
-              <Link href="/about" className="text-foreground/60 hover:text-primary transition-colors">About</Link>
-            </nav>
-            <div className="flex items-center gap-4">
-              <AuthButton />
-              <div className="h-8 w-[1px] bg-white/10 hidden sm:block" />
-              <button className="text-xs font-medium px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 transition-all text-foreground/70">
-                v0.4.0 Beta
-              </button>
-            </div>
-          </div>
-        </header>
-
-        <main className="flex-1 flex flex-col pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-screen-2xl mx-auto w-full gap-12">
-
-          {/* Hero Section */}
-          <section className="flex flex-col items-center text-center gap-6 py-12 relative">
-            {/* Background Glow */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-primary/20 rounded-full blur-[120px] -z-10 opacity-50 pointer-events-none" />
-
-            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-sm font-medium text-primary animate-fade-in">
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>Structure. Understand. Connect.</span>
-            </div>
-
-            <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-white/90 to-white/50 animate-fade-in-slow max-w-4xl">
-              Transform Text into <br className="hidden sm:block" />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-violet-400 to-indigo-500">
-                Knowledge Graphs
-              </span>
-            </h1>
-
-            <p className="max-w-2xl text-lg sm:text-xl text-muted-foreground leading-relaxed animate-fade-in-slow delay-100">
-              A service that transforms text into ontology-based knowledge graphs, enabling accurate AI and structured domain intelligence.
-            </p>
-          </section>
-
-          {/* Main Content */}
-          <div className="flex-1 flex flex-col w-full h-full max-w-screen-2xl mx-auto z-10 relative">
-
-            {/* Centered Input Section */}
-            <div className={`w-full max-w-3xl mx-auto transition-all duration-500 ease-in-out ${graphData ? "mt-0 mb-6" : "mt-[15vh]"}`}>
-              <div className="relative group">
-                <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-violet-500/20 to-indigo-500/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                <div className="relative bg-card/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 focus-within:bg-card/60 focus-within:border-primary/30 focus-within:shadow-primary/10">
-                  <div className="flex items-start p-2">
-                    <textarea
-                      className="w-full min-h-[60px] max-h-[200px] bg-transparent border-none resize-none focus:ring-0 text-foreground/90 placeholder:text-muted-foreground/50 text-lg leading-relaxed p-4"
-                      placeholder="Describe your knowledge... (e.g. 'Apple Inc. was founded by Steve Jobs...')"
-                      value={inputText}
-                      onChange={(e) => setInputText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          if (!loading && inputText.trim()) {
-                            handleGenerate();
-                          }
-                        }
-                      }}
-                    />
-                  </div>
-                  <div className="px-6 pb-3 flex justify-between items-center text-xs text-muted-foreground/50 border-t border-white/5 pt-3">
-                    <span>Enter to generate, Shift+Enter for new line</span>
-                    <span>{inputText.length} chars</span>
-                  </div>
-                </div>
-
-                {/* Generate Button - Centered below input */}
-                <div className="flex justify-center mt-6">
-                  <button
-                    onClick={handleGenerate}
-                    disabled={loading || !inputText.trim()}
-                    className={cn(
-                      "h-12 px-8 rounded-full font-semibold text-white shadow-lg transition-all duration-300 flex items-center gap-2 group relative overflow-hidden",
-                      loading || !inputText.trim()
-                        ? "bg-muted cursor-not-allowed opacity-50"
-                        : "bg-gradient-to-r from-primary to-indigo-600 hover:shadow-primary/25 hover:scale-105 active:scale-95"
-                    )}
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                        <span>Processing...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-5 w-5" />
-                        <span>Generate Graph</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Graph Section */}
-            <div className={cn(
-              "w-full h-[600px] rounded-2xl border border-white/10 bg-card/30 backdrop-blur-md shadow-2xl overflow-hidden relative transition-all duration-500 z-10",
-              !graphData && !isGenerating ? "opacity-0 translate-y-10 pointer-events-none" : "opacity-100 translate-y-0"
-            )}>
-
-              {/* Graph Toolbar */}
-              <div className="absolute top-4 right-4 z-10 flex gap-2">
-                {graphData && (
-                  <>
-                    <button
-                      onClick={() => setShowSaveDialog(true)}
-                      className="h-9 px-4 rounded-lg bg-black/40 hover:bg-white/10 border border-white/10 backdrop-blur-sm text-xs font-medium transition-all flex items-center gap-2"
-                    >
-                      <Save className="h-3.5 w-3.5" />
-                      Save Graph
-                    </button>
-                    <button
-                      onClick={() => setShowLibrary(true)}
-                      className="h-9 px-4 rounded-lg bg-black/40 hover:bg-white/10 border border-white/10 backdrop-blur-sm text-xs font-medium transition-all flex items-center gap-2"
-                    >
-                      <FolderOpen className="h-3.5 w-3.5" />
-                      My Graphs
-                    </button>
-                    <button
-                      onClick={() => setIsFullscreen(!isFullscreen)}
-                      className="h-9 px-4 rounded-lg bg-black/40 hover:bg-white/10 border border-white/10 backdrop-blur-sm text-xs font-medium transition-all flex items-center gap-2"
-                    >
-                      {isFullscreen ? (
-                        <>
-                          <X className="h-3.5 w-3.5" />
-                          Close
-                        </>
-                      ) : (
-                        <>
-                          <Maximize2 className="h-3.5 w-3.5" />
-                          Fullscreen
-                        </>
-                      )}
-                    </button>
-                    {!isFullscreen && (
-                      <>
-                        <button
-                          onClick={handleClear}
-                          className="h-9 px-4 rounded-lg bg-black/40 hover:bg-red-500/20 hover:text-red-400 border border-white/10 backdrop-blur-sm text-xs font-medium transition-all flex items-center gap-2"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Clear
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (!graphData) return;
-                            const blob = new Blob([JSON.stringify(graphData, null, 2)], { type: "application/json" });
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement("a");
-                            a.href = url;
-                            a.download = "ontology-graph.json";
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            URL.revokeObjectURL(url);
-                          }}
-                          className="h-9 px-4 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 backdrop-blur-sm text-xs font-medium transition-all flex items-center gap-2"
-                        >
-                          <Share2 className="h-3.5 w-3.5" />
-                          Export JSON
-                        </button>
-                      </>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {/* Graph Area */}
-              <div className="absolute inset-0 w-full h-full bg-[#020617] border-t border-white/10">
-                {/* Loading Animation Overlay */}
-                {isGenerating && (
-                  <div className={`absolute inset-0 z-20 transition-opacity duration-700 ${isAnimationFading ? 'opacity-0' : 'opacity-100'} `}>
-                    <GraphLoadingAnimation />
-                  </div>
-                )}
-
-
-                {graphData ? (
-                  <GraphView
-                    key={`graph-${isFullscreen ? 'fullscreen' : 'normal'} `}
-                    elements={graphData.elements}
-                    onNodeClick={handleNodeClick}
-                    onEdgeClick={handleEdgeClick}
-                    isFullscreen={isFullscreen}
-                  />
-                ) : null}
-              </div>
-
-              {/* Node Details Panel */}
-              {selectedItem && !isFullscreen && (
-                <div className="absolute bottom-4 left-4 w-80 max-h-[400px] overflow-y-auto rounded-xl border border-white/10 bg-black/60 backdrop-blur-md p-4 shadow-xl animate-fade-in z-10">
-                  <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-semibold text-primary">
-                      {selectedItem.label || selectedItem.id}
-                    </h4>
-                    <button
-                      onClick={() => setSelectedItem(null)}
-                      className="text-muted-foreground hover:text-white"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <div className="space-y-2 text-sm text-muted-foreground">
-                    {Object.entries(selectedItem).map(([key, value]) => {
-                      if (key === 'id' || key === 'label' || key === 'expanded' || key === 'role') return null;
-                      return (
-                        <div key={key} className="flex flex-col">
-                          <span className="text-xs uppercase tracking-wider opacity-50">{key}</span>
-                          <span className="text-foreground/90">{String(value)}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+        ) : (
+          <div className="w-full max-w-sm animate-fade-in">
+            <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-700/50 backdrop-blur-sm">
+              <p className="text-slate-400 text-sm mb-4">개발자 접근 코드를 입력하세요</p>
+              <input
+                type="password"
+                value={accessCode}
+                onChange={(e) => setAccessCode(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAccess()}
+                placeholder="Access Code"
+                className="w-full px-4 py-3 rounded-xl bg-slate-800/50 border border-slate-600/50 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/25 transition-all"
+              />
+              {error && (
+                <p className="mt-2 text-sm text-red-400">{error}</p>
               )}
+              <div className="flex gap-3 mt-4">
+                <button
+                  onClick={() => setShowAccess(false)}
+                  className="flex-1 px-4 py-2 rounded-xl bg-slate-700/50 text-slate-300 hover:bg-slate-700 transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleAccess}
+                  className="flex-1 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-500 text-white font-medium hover:opacity-90 transition-opacity"
+                >
+                  접속
+                </button>
+              </div>
             </div>
           </div>
-        </main>
+        )}
+
+        {/* Footer Links */}
+        <div className="absolute bottom-8 left-0 right-0 flex justify-center gap-6 text-sm text-slate-500">
+          <Link href="/about" className="hover:text-slate-300 transition-colors">
+            About
+          </Link>
+          <Link href="/version" className="hover:text-slate-300 transition-colors">
+            Version
+          </Link>
+          <a href="mailto:info@xrx.studio" className="hover:text-slate-300 transition-colors">
+            Contact
+          </a>
+        </div>
       </div>
 
-      {/* Dialogs */}
-      {showSaveDialog && graphData && (
-        <SaveGraphDialog
-          graphData={graphData.elements}
-          onClose={() => setShowSaveDialog(false)}
-          onSave={() => {
-            setShowSaveDialog(false);
-            // Optionally show success message
-          }}
-        />
-      )}
-
-      {showLibrary && (
-        <GraphLibrary
-          onLoad={(loadedGraphData) => {
-            setGraphData({ elements: loadedGraphData });
-            setShowLibrary(false);
-          }}
-          onClose={() => setShowLibrary(false)}
-        />
-      )}
-    </>
+      {/* CSS Animations */}
+      <style jsx>{`
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+          animation: fade-in 0.8s ease-out forwards;
+        }
+        .animate-fade-in-delay {
+          opacity: 0;
+          animation: fade-in 0.8s ease-out 0.2s forwards;
+        }
+        .animate-fade-in-delay-2 {
+          opacity: 0;
+          animation: fade-in 0.8s ease-out 0.4s forwards;
+        }
+      `}</style>
+    </div>
   );
 }
