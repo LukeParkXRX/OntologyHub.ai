@@ -12,7 +12,10 @@ import {
   Settings,
   Database,
   MessageSquare,
-  Sparkles
+  Sparkles,
+  RefreshCw,
+  ExternalLink,
+  Trash2
 } from "lucide-react";
 
 interface LogEntry {
@@ -26,8 +29,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [graphData, setGraphData] = useState<{ nodes: any[]; links: any[] }>({ nodes: [], links: [] });
-  // Default text for quick start
-  const [inputText, setInputText] = useState("OntologyHub.AI is now ALIVE. It is a cognitive system designed to extend human intelligence through structured knowledge graphs.");
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  // Start with empty input
+  const [inputText, setInputText] = useState("");
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   const addLog = (type: LogEntry["type"], message: string) => {
@@ -44,42 +48,49 @@ export default function Home() {
     logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [logs]);
 
-  // Memory Recall: Load existing knowledge graph on page mount
-  useEffect(() => {
-    const recallMemory = async () => {
-      try {
-        addLog("info", "Recalling stored memories from Neural Core...");
-        const response = await fetch("http://localhost:8000/api/v1/recall?limit=200");
+  // Memory Recall: Fetch existing knowledge graph from backend
+  const handleRecallMemory = async () => {
+    setLoading(true);
+    try {
+      addLog("info", "Recalling stored memories from Neural Core...");
+      const response = await fetch("http://localhost:8000/api/v1/recall?limit=200");
 
-        if (!response.ok) {
-          addLog("error", "Memory recall failed. Backend may be offline.");
-          return;
-        }
-
-        const data = await response.json();
-
-        if (data.node_count > 0) {
-          const formattedData = {
-            nodes: data.nodes.map((n: any) => ({ id: n.id, type: n.type, ...n.properties })),
-            links: data.relationships.filter((r: any) => r.source && r.target).map((r: any) => ({
-              source: r.source,
-              target: r.target,
-              type: r.type
-            }))
-          };
-          setGraphData(formattedData);
-          addLog("success", `Recalled ${data.node_count} concepts and ${data.relationship_count} connections.`);
-        } else {
-          addLog("info", "No memories found. Start by ingesting some knowledge!");
-        }
-      } catch (e) {
-        console.error("Memory recall error:", e);
-        addLog("info", "Backend offline. Start backend to enable memory.");
+      if (!response.ok) {
+        addLog("error", "Memory recall failed. Backend may be offline.");
+        return;
       }
-    };
 
-    recallMemory();
-  }, []); // Empty dependency = run once on mount
+      const data = await response.json();
+
+      if (data.node_count > 0) {
+        const formattedData = {
+          nodes: data.nodes.map((n: any) => ({ id: n.id, type: n.type, ...n.properties })),
+          links: data.relationships.filter((r: any) => r.source && r.target).map((r: any) => ({
+            source: r.source,
+            target: r.target,
+            type: r.type
+          }))
+        };
+        setGraphData(formattedData);
+        addLog("success", `Recalled ${data.node_count} concepts and ${data.relationship_count} connections.`);
+      } else {
+        addLog("info", "No memories found. Start by ingesting some knowledge!");
+      }
+    } catch (e) {
+      console.error("Memory recall error:", e);
+      addLog("info", "Backend offline. Start backend to enable memory.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle Enter key submission
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey && !loading) {
+      e.preventDefault();
+      handleConnectBrain();
+    }
+  };
 
   const handleConnectBrain = async () => {
     if (!inputText.trim()) {
@@ -157,6 +168,9 @@ export default function Home() {
     addLog("info", `Expanding knowledge for: "${node.id}"...`);
     setLoading(true);
 
+    // Mark this node as expanded
+    setExpandedNodes(prev => new Set([...prev, node.id]));
+
     try {
       const response = await fetch("http://localhost:8000/api/v1/ingest", {
         method: "POST",
@@ -212,6 +226,20 @@ export default function Home() {
     }
   };
 
+  // Clear all graph data and memory
+  const handleClearMemory = async () => {
+    addLog("info", "Clearing local memory...");
+    setGraphData({ nodes: [], links: [] });
+    setExpandedNodes(new Set());
+    setLogs([]);
+    addLog("success", "Memory cleared. Ready for new knowledge.");
+  };
+
+  // Open documentation
+  const handleOpenDocs = () => {
+    window.open("https://github.com/LukeParkXRX/OntologyHub.ai", "_blank");
+  };
+
   return (
     <div className="flex h-screen bg-slate-950 text-white overflow-hidden font-sans selection:bg-cyan-500/30">
 
@@ -241,20 +269,14 @@ export default function Home() {
               <span>Knowledge Input</span>
             </div>
             <div className="relative group">
-              <textarea
+              <input
+                type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                onFocus={() => {
-                  if (inputText.startsWith("OntologyHub.AI is now ALIVE")) {
-                    setInputText("");
-                  }
-                }}
-                className="w-full h-40 bg-slate-900/50 border border-slate-800 rounded-xl p-4 text-sm text-slate-300 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all resize-none placeholder:text-slate-600 leading-relaxed shadow-inner"
-                placeholder="Describe a concept, system, or story here..."
+                onKeyDown={handleKeyDown}
+                className="w-full bg-slate-900/50 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-300 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all placeholder:text-slate-600 shadow-inner"
+                placeholder="Enter a concept and press Enter..."
               />
-              <div className="absolute bottom-3 right-3 text-[10px] text-slate-600 pointer-events-none">
-                {inputText.length} chars
-              </div>
             </div>
             <AliveButton
               className="w-full justify-center" variant="primary" glowColor="cyan"
@@ -278,17 +300,24 @@ export default function Home() {
               <Cpu className="w-4 h-4 mr-2" />
               Run Simulation
             </AliveButton>
-            <AliveButton className="w-full justify-start pl-4" variant="ghost">
-              <Database className="w-4 h-4 mr-2" />
+            <AliveButton
+              className="w-full justify-start pl-4" variant="ghost"
+              onClick={handleClearMemory}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
               Clear Memory
             </AliveButton>
           </div>
 
           <div className="space-y-2">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider pl-1">Resources</p>
-            <AliveButton className="w-full justify-start pl-4" variant="ghost">
+            <AliveButton
+              className="w-full justify-start pl-4" variant="ghost"
+              onClick={handleOpenDocs}
+            >
               <BookOpen className="w-4 h-4 mr-2" />
               Documentation
+              <ExternalLink className="w-3 h-3 ml-auto opacity-50" />
             </AliveButton>
           </div>
         </nav>
@@ -306,11 +335,19 @@ export default function Home() {
       {/* MAIN CONTENT AREA */}
       <main className="flex-1 relative flex flex-col bg-slate-950">
         {/* Header Bar */}
-        <header className="absolute top-0 left-0 right-0 h-16 z-10 flex items-center justify-between px-8 bg-gradient-to-b from-slate-950 to-transparent pointer-events-none">
-          <div className="flex items-center gap-2">
+        <header className="absolute top-0 left-0 right-0 h-16 z-10 flex items-center justify-between px-8 bg-gradient-to-b from-slate-950 to-transparent">
+          <div className="flex items-center gap-2 pointer-events-none">
             <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-[pulse_2s_infinite]"></div>
             <span className="text-[10px] font-mono text-cyan-500/70 tracking-[0.2em]">VISUAL_CORTEX_ACTIVE</span>
           </div>
+          <button
+            onClick={handleRecallMemory}
+            disabled={loading}
+            className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/80 border border-slate-700 rounded-lg text-xs text-slate-400 hover:text-cyan-400 hover:border-cyan-500/50 transition-all disabled:opacity-50 pointer-events-auto"
+          >
+            <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
         </header>
 
         {/* Visualization Area (Full Screen) */}
@@ -324,7 +361,7 @@ export default function Home() {
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                 className="absolute inset-0"
               >
-                <GraphView data={graphData} onNodeClick={handleNodeClick} />
+                <GraphView data={graphData} onNodeClick={handleNodeClick} expandedNodes={expandedNodes} />
               </motion.div>
             ) : (
               <div className="absolute inset-0 flex items-center justify-center text-slate-700">
