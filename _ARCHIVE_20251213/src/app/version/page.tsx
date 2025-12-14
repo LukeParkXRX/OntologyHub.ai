@@ -7,36 +7,36 @@ export default function VersionPage() {
     const roadmap = [
         {
             phase: "Phase 1",
-            title: "기반 구축 & 사용자 경험",
-            description: "직관적인 그래프 에디터, 개인화된 저장소, 자연어 기반 생성 고도화",
+            title: "The Builder (자동화된 학습)",
+            description: "하이브리드 메모리 스키마(Memgraph + Weaviate), 영상/텍스트 온톨로지 자동 추출, LangGraph 기반 ETL 파이프라인",
             status: "In Progress",
             icon: Brain
         },
         {
             phase: "Phase 2",
-            title: "지식 공유 & 협업",
-            description: "공유 링크 생성, 팀 워크스페이스, 버전 관리 시스템",
+            title: "The Brain (하이브리드 지능)",
+            description: "Semantic Router 기반 0.05초 의도 분류, Edge SLM(Qwen2.5) + Cloud LLM 결합, NeMo Guardrails 할루시네이션 방어",
             status: "Planned",
-            icon: Users
+            icon: Zap
         },
         {
             phase: "Phase 3",
-            title: "도메인 확장 & 통합",
-            description: "도메인별 템플릿, 그래프 병합(Merge), 공용 지식 베이스",
+            title: "The Action (초저지연 인프라)",
+            description: "WebSocket + MessagePack 실시간 스트리밍, Redis Pub/Sub 토큰 발행, T2M-GPT Intent-to-Motion 엔진",
             status: "Planned",
             icon: Globe
         },
         {
             phase: "Phase 4",
-            title: "API & SaaS 생태계",
-            description: "REST/GraphQL API, SDK 제공, 구독 모델 도입",
+            title: "The Platform (수익화)",
+            description: "API Metering & Rate Limiting, 티어별 과금 시스템, JavaScript/Python SDK 배포",
             status: "Planned",
             icon: Cloud
         },
         {
             phase: "Phase 5",
-            title: "AI '존재' 구현",
-            description: "기억 메모리 시스템, 페르소나 모듈, 감정 및 공감 엔진",
+            title: "The Being (디지털 존재)",
+            description: "장기 기억 시스템, 일관된 페르소나 모듈, 감정 & 공감 엔진, 3D 아바타 Pixel Streaming 통합",
             status: "Vision",
             icon: Heart
         }
@@ -284,8 +284,8 @@ export default function VersionPage() {
                                                 <Icon className={`h-6 w-6 ${item.status === "Vision" ? "text-primary" : "text-foreground/70"}`} />
                                             </div>
                                             <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${item.status === "In Progress" ? "bg-blue-500/20 text-blue-400" :
-                                                    item.status === "Vision" ? "bg-primary/20 text-primary" :
-                                                        "bg-white/5 text-muted-foreground"
+                                                item.status === "Vision" ? "bg-primary/20 text-primary" :
+                                                    "bg-white/5 text-muted-foreground"
                                                 }`}>
                                                 {item.status}
                                             </span>

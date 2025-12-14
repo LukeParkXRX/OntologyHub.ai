@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  # Memgraph - 그래프 데이터베이스
+  memgraph:
+    image: memgraph/memgraph-platform:latest
+    container_name: alive_memgraph
+    ports:
+      - "7687:7687"   # Bolt protocol
+      - "7444:7444"   # Lab UI
+      - "3000:3000"   # Memgraph Lab
+    environment:
+      - MEMGRAPH_USER=memgraph
+      - MEMGRAPH_PASSWORD=alive_secret
+    volumes:
+      - memgraph_data:/var/lib/memgraph
+      - memgraph_log:/var/log/memgraph
+    restart: unless-stopped
+
+  # Weaviate - 벡터 데이터베이스
+  weaviate:
+    image: semitechnologies/weaviate:1.23.0
+    container_name: alive_weaviate
+    ports:
+      - "8080:8080"
+    environment:
+      - QUERY_DEFAULTS_LIMIT=25
+      - AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED=true
+      - PERSISTENCE_DATA_PATH=/var/lib/weaviate
+      - DEFAULT_VECTORIZER_MODULE=text2vec-openai
+      - ENABLE_MODULES=text2vec-openai,generative-openai
+      - OPENAI_APIKEY=${OPENAI_API_KEY}
+      - CLUSTER_HOSTNAME=node1
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+    restart: unless-stopped
+
+  # Redis - 캐시 및 Pub/Sub
+  redis:
+    image: redis:7-alpine
+    container_name: alive_redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  memgraph_data:
+  memgraph_log:
+  weaviate_data:
+  redis_data:
+
+networks:
+  default:
+    name: alive_network

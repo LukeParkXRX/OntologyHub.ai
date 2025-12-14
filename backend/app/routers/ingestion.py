@@ -1,0 +1,38 @@
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+from typing import List, Any
+from app.services.ingestion import ingestion_service
+
+router = APIRouter()
+
+class IngestRequest(BaseModel):
+    text: str
+    metadata: dict = {}
+
+class IngestResponse(BaseModel):
+    message: str
+    nodes_created: int
+    relationships_created: int
+    graph_data: List[Any] = []
+
+@router.post("/ingest", response_model=IngestResponse)
+async def ingest_knowledge(request: IngestRequest):
+    """
+    Ingests text, converts it to a knowledge graph using LLM, and stores it in Neo4j.
+    """
+    try:
+        print(f"📥 Received ingestion request: {request.text[:50]}...")
+        graph_docs = await ingestion_service.process_text_to_graph(request.text, request.metadata)
+        
+        node_count = sum(len(doc.nodes) for doc in graph_docs)
+        rel_count = sum(len(doc.relationships) for doc in graph_docs)
+        
+        return IngestResponse(
+            message="Knowledge Graph ingestion successful",
+            nodes_created=node_count,
+            relationships_created=rel_count,
+            graph_data=graph_docs # This might need serialization adjustment depending on GraphDocument structure
+        )
+    except Exception as e:
+        print(f"❌ Ingestion failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

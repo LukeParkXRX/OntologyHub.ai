@@ -1,87 +1,22 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-@layer base {
-  :root {
-    /* Default to Dark Mode values */
-    --background: 222.2 84% 4.9%;
-    /* Deep Navy/Black */
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 263.4 70% 50.4%;
-    /* Vivid Violet */
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    /* Dark Slate */
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 263.4 70% 50.4%;
-    /* Use Primary as Accent for now */
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 263.4 70% 50.4%;
-
-    --radius: 0.75rem;
-    /* Slightly more rounded */
-
-    --chart-1: 263.4 70% 50.4%;
-    --chart-2: 280 65% 60%;
-    --chart-3: 220 70% 50%;
-    --chart-4: 160 60% 45%;
-    --chart-5: 340 75% 55%;
-  }
-
-  /* Keep .dark for compatibility but it matches root now */
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 263.4 70% 50.4%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 263.4 70% 50.4%;
-    --chart-1: 263.4 70% 50.4%;
-    --chart-2: 280 65% 60%;
-    --chart-3: 220 70% 50%;
-    --chart-4: 160 60% 45%;
-    --chart-5: 340 75% 55%;
-  }
+@theme {
+  --color-background: #0F172A;
+  --color-foreground: #F8FAFC;
 }
 
-@layer base {
-  * {
-    @apply border-border;
-  }
+/* 
+  In v4, we use standard CSS variables for theme extension if needed, 
+  or just let Tailwind handle defaults. 
+  But to match my previous :root definition for Shadcn-like usage:
+*/
+:root {
+  --background: #0F172A;
+  --foreground: #F8FAFC;
+}
 
-  body {
-    @apply bg-background text-foreground;
-  }
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
 }
