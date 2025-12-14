@@ -53,7 +53,7 @@ export default function Home() {
     setLoading(true);
     try {
       addLog("info", "Recalling stored memories from Neural Core...");
-      const response = await fetch("http://localhost:8000/api/v1/recall?limit=200");
+      const response = await fetch("/api/v1/recall?limit=200");
 
       if (!response.ok) {
         addLog("error", "Memory recall failed. Backend may be offline.");
@@ -102,7 +102,7 @@ export default function Home() {
     addLog("info", "Transmitting data to Neural Core...");
 
     try {
-      const response = await fetch("http://localhost:8000/api/v1/ingest", {
+      const response = await fetch("/api/v1/ingest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -172,7 +172,7 @@ export default function Home() {
     setExpandedNodes(prev => new Set([...prev, node.id]));
 
     try {
-      const response = await fetch("http://localhost:8000/api/v1/ingest", {
+      const response = await fetch("/api/v1/ingest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
