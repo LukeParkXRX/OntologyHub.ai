@@ -9,16 +9,17 @@ from ..config import settings
 
 class IngestionService:
     def __init__(self):
-        # Initialize the LLM for graph extraction
-        self.llm = ChatOpenAI(
-            temperature=0,
-            model="gpt-4o-mini",
-            api_key=settings.OPENAI_API_KEY
-        )
-        
-        # Initialize the transformer
-        # allowed_nodes and allowed_relationships can be passed here to schema-constrain the extraction
-        self.transformer = LLMGraphTransformer(llm=self.llm)
+        # Initialize the LLM for graph extraction if key is present
+        if settings.OPENAI_API_KEY:
+            self.llm = ChatOpenAI(
+                temperature=0,
+                model="gpt-4o-mini",
+                api_key=settings.OPENAI_API_KEY
+            )
+            self.transformer = LLMGraphTransformer(llm=self.llm)
+        else:
+            self.llm = None
+            self.transformer = None
         
     async def process_text_to_graph(self, text: str, metadata: Optional[dict] = None) -> List[GraphDocument]:
         """
@@ -30,6 +31,15 @@ class IngestionService:
         """
         if not text.strip():
             return []
+
+        if not self.llm or not self.transformer:
+            raise ValueError("OpenAI API Key is missing. Cannot process text.")
+            
+        # Check DB connection early
+        try:
+            graph = get_graph_db()
+        except:
+            raise ValueError("Database connection failed. Cannot store graph.")
 
         # 1. Concept Expansion (The "Brain" Logic)
         processed_text = text
@@ -64,19 +74,24 @@ class IngestionService:
 
         # 3.5 Generate Embeddings for Nodes
         print("🧬 Generating Embeddings for Hybrid Memory...")
-        from langchain_openai import OpenAIEmbeddings
-        embeddings = OpenAIEmbeddings(model="text-embedding-3-small", api_key=settings.OPENAI_API_KEY)
+        if settings.OPENAI_API_KEY:
+            from langchain_openai import OpenAIEmbeddings
+            embeddings = OpenAIEmbeddings(model="text-embedding-3-small", api_key=settings.OPENAI_API_KEY)
+        else:
+            print("⚠️ No API Key for embeddings. Skipping.")
+            embeddings = None
         
         for doc in graph_documents:
             for node in doc.nodes:
                 # Embedding content: ID + Type ( + Description if we had it, but currently LLMGraphTransformer doesn't output it easily)
                 # Ideally we'd extract descriptions too, but for MVP we use ID.
                 text_to_embed = f"{node.id} ({node.type})"
-                # Synchronous embedding generation (batching would be better for scale)
-                vector = await embeddings.aembed_query(text_to_embed)
-                
-                # Attach to node properties
-                node.properties["embedding"] = vector
+                if embeddings:
+                    # Synchronous embedding generation (batching would be better for scale)
+                    vector = await embeddings.aembed_query(text_to_embed)
+                    
+                    # Attach to node properties
+                    node.properties["embedding"] = vector
                 # Also set last_accessed
                 from datetime import datetime
                 node.properties["last_accessed"] = datetime.utcnow().isoformat()
