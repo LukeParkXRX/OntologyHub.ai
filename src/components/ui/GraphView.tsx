@@ -23,7 +23,7 @@ interface GraphViewProps {
 
 export const GraphView = ({ data, onNodeClick, expandedNodes = new Set() }: GraphViewProps) => {
     const [ref, bounds] = useMeasure();
-    const fgRef = useRef<any>();
+    const fgRef = useRef<any>(null);
     const [hoverNode, setHoverNode] = useState<any>(null);
     const [animationTime, setAnimationTime] = useState(0);
 
@@ -39,8 +39,8 @@ export const GraphView = ({ data, onNodeClick, expandedNodes = new Set() }: Grap
     const validatedData = useMemo(() => {
         const nodeIds = new Set(data.nodes.map(node => String(node.id)));
         const validLinks = data.links.filter(link => {
-            const sourceId = typeof link.source === 'object' ? link.source.id : String(link.source);
-            const targetId = typeof link.target === 'object' ? link.target.id : String(link.target);
+            const sourceId = typeof link.source === 'object' ? (link.source as any).id : String(link.source);
+            const targetId = typeof link.target === 'object' ? (link.target as any).id : String(link.target);
             return nodeIds.has(sourceId) && nodeIds.has(targetId);
         });
 

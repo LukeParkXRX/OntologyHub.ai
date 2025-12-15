@@ -1,0 +1,5 @@
+_ARCHIVE_*
+.git
+node_modules
+*.log
+.DS_Store
