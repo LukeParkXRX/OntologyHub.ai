@@ -4,8 +4,8 @@ from langchain_experimental.graph_transformers import LLMGraphTransformer
 from langchain_openai import ChatOpenAI
 from langchain_community.graphs.graph_document import GraphDocument
 
-from app.database import get_graph_db
-from app.config import settings
+from ..database import get_graph_db
+from ..config import settings
 
 class IngestionService:
     def __init__(self):

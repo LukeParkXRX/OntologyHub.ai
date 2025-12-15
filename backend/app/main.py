@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from app.config import settings
-from app.database import get_graph_db
+from .config import settings
+from .database import get_graph_db
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -14,16 +14,18 @@ async def lifespan(app: FastAPI):
         # Test connection on startup
         graph = get_graph_db()
         print(f"🚀 {settings.PROJECT_NAME} Backend Started.")
-        yield
     except Exception as e:
         print(f"❌ Failed to connect to Neo4j: {e}")
-        raise e
-    finally:
-        # Cleanup
-        print(f"👋 {settings.PROJECT_NAME} Shutting down...")
+        print("⚠️ Application starting in Offline Mode (Database unavailable)")
+    
+    # Always yield to let the application start
+    yield
+        
+    # Cleanup runs after the application shuts down
+    print(f"👋 {settings.PROJECT_NAME} Shutting down...")
 
-from app.routers import ingestion
-from app.routers import recall
+from .routers import ingestion
+from .routers import recall
 
 from fastapi.middleware.cors import CORSMiddleware
 

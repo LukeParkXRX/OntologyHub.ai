@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Any
-from app.services.ingestion import ingestion_service
+from ..services.ingestion import ingestion_service
 
 router = APIRouter()
 

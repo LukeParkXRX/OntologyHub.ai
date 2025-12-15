@@ -254,7 +254,10 @@ export default function Home() {
             <Network className="text-white w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-white bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">OntologyHub.ai</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight text-white bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">OntologyHub.ai</h1>
+              <span className="px-1.5 py-0.5 rounded-md bg-cyan-950/50 border border-cyan-500/30 text-[10px] font-bold text-cyan-400 tracking-wider">XRX</span>
+            </div>
             <p className="text-[10px] text-cyan-400 tracking-widest font-mono uppercase">Neural Interface V1.0</p>
           </div>
         </div>
@@ -339,6 +342,12 @@ export default function Home() {
           <div className="flex items-center gap-2 pointer-events-none">
             <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-[pulse_2s_infinite]"></div>
             <span className="text-[10px] font-mono text-cyan-500/70 tracking-[0.2em]">VISUAL_CORTEX_ACTIVE</span>
+          </div>
+
+          {/* XRX Branding */}
+          {/* XRX Branding */}
+          <div className="absolute left-1/2 transform -translate-x-1/2 top-1/2 -translate-y-1/2 pointer-events-none">
+            <span className="text-3xl font-black tracking-[0.5em] text-cyan-500/10 hover:text-cyan-500/20 transition-colors">XRX</span>
           </div>
           <button
             onClick={handleRecallMemory}

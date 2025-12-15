@@ -1,6 +1,6 @@
 from typing import Optional
 from langchain_neo4j import Neo4jGraph
-from app.config import settings
+from .config import settings
 
 class GraphDatabase:
     _instance: Optional[Neo4jGraph] = None

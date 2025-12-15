@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Any, Optional
-from app.database import get_graph_db
+from ..database import get_graph_db
 
 router = APIRouter()
 
@@ -67,7 +67,7 @@ async def recall_by_vector(query: str, limit: int = 20):
     """
     try:
         from langchain_openai import OpenAIEmbeddings
-        from app.config import settings
+        from ..config import settings
         
         graph = get_graph_db()
         

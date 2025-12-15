@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
+from typing import Optional
 
 class Settings(BaseSettings):
     # Neo4j Settings
@@ -9,7 +10,7 @@ class Settings(BaseSettings):
 
     # AI API Keys
     OPENAI_API_KEY: str = Field(..., description="OpenAI API Key")
-    TAVILY_API_KEY: str | None = Field(None, description="Tavily API Key (Optional)")
+    TAVILY_API_KEY: Optional[str] = Field(None, description="Tavily API Key (Optional)")
 
     # App Settings
     PROJECT_NAME: str = "OntologyHub.AI"
