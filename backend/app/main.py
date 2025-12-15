@@ -24,28 +24,25 @@ async def lifespan(app: FastAPI):
     # Cleanup runs after the application shuts down
     print(f"👋 {settings.PROJECT_NAME} Shutting down...")
 
-from .routers import ingestion
-from .routers import recall
+from .routers import ingestion, recall, upload, chat
 
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI(
-    title=settings.PROJECT_NAME,
-    version=settings.VERSION,
-    lifespan=lifespan
-)
+app = FastAPI(title=settings.PROJECT_NAME, version=settings.VERSION, lifespan=lifespan)
 
-# Configure CORS
+# CORS (Allow all for development)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(ingestion.router, prefix="/api/v1", tags=["Ingestion"])
-app.include_router(recall.router, prefix="/api/v1", tags=["Memory"])
+app.include_router(ingestion.router, prefix=settings.API_V1_STR, tags=["Ingestion"])
+app.include_router(recall.router, prefix=settings.API_V1_STR, tags=["Recall"])
+app.include_router(upload.router, prefix=settings.API_V1_STR, tags=["Upload"])
+app.include_router(chat.router, prefix=settings.API_V1_STR, tags=["Chat"])
 
 
 @app.get("/")

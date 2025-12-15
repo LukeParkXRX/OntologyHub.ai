@@ -10,12 +10,15 @@ import {
   BookOpen,
   Activity,
   Settings,
-  Database,
   MessageSquare,
   Sparkles,
   RefreshCw,
   ExternalLink,
-  Trash2
+  Trash2,
+  Upload,
+  FileText,
+  X,
+  Send
 } from "lucide-react";
 
 interface LogEntry {
@@ -33,6 +36,14 @@ export default function Home() {
   // Start with empty input
   const [inputText, setInputText] = useState("");
   const logsEndRef = useRef<HTMLDivElement>(null);
+
+  // New Features State
+  const [activeTab, setActiveTab] = useState<"text" | "file">("text");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [chatHistory, setChatHistory] = useState<{ role: "user" | "ai"; content: string }[]>([]);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   const addLog = (type: LogEntry["type"], message: string) => {
     const entry: LogEntry = {
@@ -93,49 +104,115 @@ export default function Home() {
   };
 
   const handleConnectBrain = async () => {
-    if (!inputText.trim()) {
-      addLog("error", "Input is empty. Please provide text to ingest.");
-      return;
-    }
-
-    setLoading(true);
-    addLog("info", "Transmitting data to Neural Core...");
-
-    try {
-      const response = await fetch("/api/v1/ingest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: inputText,
-          metadata: { source: "user_input" },
-        }),
-      });
-
-      if (!response.ok) throw new Error("Connection failed");
-
-      const data = await response.json();
-      addLog("success", `Processed! Extracted ${data.nodes_created} concepts.`);
-
-      const rawGraph = data.graph_data[0];
-      if (rawGraph) {
-        const formattedData = {
-          nodes: rawGraph.nodes.map((n: any) => ({ ...n, id: n.id })),
-          links: rawGraph.relationships.map((r: any) => ({
-            source: r.source.id,
-            target: r.target.id,
-            type: r.type
-          }))
-        };
-        setGraphData(formattedData);
-        addLog("info", "Updating Visual Cortex...");
+    if (activeTab === 'text') {
+      if (!inputText.trim()) {
+        addLog("error", "Input is empty. Please provide text to ingest.");
+        return;
       }
-    } catch (e) {
-      console.error(e);
-      addLog("error", "Ingestion Failed. Is the Brain (Backend) online?");
-    } finally {
-      setLoading(false);
+
+      setLoading(true);
+      addLog("info", "Transmitting data to Neural Core...");
+
+      try {
+        const response = await fetch("/api/v1/ingest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: inputText,
+            metadata: { source: "user_input" },
+          }),
+        });
+
+        if (!response.ok) throw new Error("Connection failed");
+
+        const data = await response.json();
+        addLog("success", `Processed! Extracted ${data.nodes_created} concepts.`);
+
+        const rawGraph = data.graph_data[0];
+        if (rawGraph) {
+          updateGraphData(rawGraph);
+        }
+      } catch (e) {
+        console.error(e);
+        addLog("error", "Ingestion Failed. Is the Brain (Backend) online?");
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // FILE UPLOAD
+      if (!selectedFile) {
+        addLog("error", "No file selected.");
+        return;
+      }
+      setLoading(true);
+      addLog("info", `Uploading & Analyzing ${selectedFile.name}...`);
+
+      try {
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+
+        const response = await fetch("/api/v1/upload", {
+          method: "POST",
+          body: formData
+        });
+
+        if (!response.ok) throw new Error("Upload failed");
+
+        const data = await response.json();
+        addLog("success", `Analyzed ${data.filename}. Extracted ${data.nodes_created} concepts.`);
+        // Refresh memory to see new nodes
+        handleRecallMemory();
+
+      } catch (e) {
+        console.error(e);
+        addLog("error", "File Analysis Failed.");
+      } finally {
+        setLoading(false);
+      }
     }
   };
+
+  const updateGraphData = (rawGraph: any) => {
+    const formattedData = {
+      nodes: rawGraph.nodes.map((n: any) => ({ ...n, id: n.id })),
+      links: rawGraph.relationships.map((r: any) => ({
+        source: r.source.id,
+        target: r.target.id,
+        type: r.type
+      }))
+    };
+    setGraphData(formattedData);
+    addLog("info", "Updating Visual Cortex...");
+  };
+
+  const handleChatSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!chatInput.trim()) return;
+
+    const userMsg = chatInput;
+    setChatInput("");
+    setChatHistory(prev => [...prev, { role: "user", content: userMsg }]);
+
+    try {
+      const response = await fetch("/api/v1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMsg, history: chatHistory })
+      });
+
+      if (!response.ok) throw new Error("Chat failed");
+
+      const data = await response.json();
+      setChatHistory(prev => [...prev, { role: "ai", content: data.reply }]);
+
+    } catch (e) {
+      setChatHistory(prev => [...prev, { role: "ai", content: "[Communication Error: Check Backend]" }]);
+    }
+  };
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatHistory]);
 
   const handleInitializeSystem = () => {
     setLoading(true);
@@ -271,22 +348,67 @@ export default function Home() {
               <MessageSquare className="w-3 h-3" />
               <span>Knowledge Input</span>
             </div>
-            <div className="relative group">
-              <input
-                type="text"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="w-full bg-slate-900/50 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-300 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all placeholder:text-slate-600 shadow-inner"
-                placeholder="Enter a concept and press Enter..."
-              />
+
+            {/* TABS */}
+            <div className="flex bg-slate-900/50 p-1 rounded-lg border border-slate-800 mb-2">
+              <button
+                onClick={() => setActiveTab('text')}
+                className={`flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-medium rounded-md transition-all ${activeTab === 'text' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-400'}`}
+              >
+                <MessageSquare className="w-3 h-3" /> Text
+              </button>
+              <button
+                onClick={() => setActiveTab('file')}
+                className={`flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-medium rounded-md transition-all ${activeTab === 'file' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-400'}`}
+              >
+                <Upload className="w-3 h-3" /> File
+              </button>
             </div>
+
+            <div className="relative group">
+              {activeTab === 'text' ? (
+                <input
+                  type="text"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className="w-full bg-slate-900/50 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-300 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all placeholder:text-slate-600 shadow-inner"
+                  placeholder="Enter a concept and press Enter..."
+                />
+              ) : (
+                <div className="w-full">
+                  <input
+                    type="file"
+                    id="file-upload"
+                    className="hidden"
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  />
+                  <label
+                    htmlFor="file-upload"
+                    className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-slate-700 hover:border-cyan-500/50 rounded-xl bg-slate-900/30 cursor-pointer transition-all hover:bg-slate-900/50 group"
+                  >
+                    {selectedFile ? (
+                      <div className="flex items-center gap-2 text-cyan-400">
+                        <FileText className="w-5 h-5" />
+                        <span className="text-sm truncate max-w-[150px]">{selectedFile.name}</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-1 text-slate-500 group-hover:text-cyan-400/80">
+                        <Upload className="w-5 h-5 mb-1" />
+                        <span className="text-xs">Click to upload (PDF, Excel, Img)</span>
+                      </div>
+                    )}
+                  </label>
+                </div>
+              )}
+            </div>
+
             <AliveButton
               className="w-full justify-center" variant="primary" glowColor="cyan"
               onClick={handleConnectBrain} disabled={loading}
             >
               <Sparkles className="w-4 h-4 mr-2" />
-              {loading ? "Processing..." : "Generate Graph"}
+              {loading ? "Processing..." : (activeTab === 'text' ? "Generate Graph" : "Upload & Analyze")}
             </AliveButton>
           </div>
 
@@ -309,6 +431,14 @@ export default function Home() {
             >
               <Trash2 className="w-4 h-4 mr-2" />
               Clear Memory
+            </AliveButton>
+
+            <AliveButton
+              className={`w-full justify-start pl-4 ${chatOpen ? 'bg-cyan-950/30 border-cyan-500/30 text-cyan-400' : ''}`} variant="ghost"
+              onClick={() => setChatOpen(!chatOpen)}
+            >
+              <MessageSquare className="w-4 h-4 mr-2" />
+              Chat / Verify
             </AliveButton>
           </div>
 
@@ -344,7 +474,6 @@ export default function Home() {
             <span className="text-[10px] font-mono text-cyan-500/70 tracking-[0.2em]">VISUAL_CORTEX_ACTIVE</span>
           </div>
 
-          {/* XRX Branding */}
           {/* XRX Branding */}
           <div className="absolute left-1/2 transform -translate-x-1/2 top-1/2 -translate-y-1/2 pointer-events-none">
             <span className="text-3xl font-black tracking-[0.5em] text-cyan-500/10 hover:text-cyan-500/20 transition-colors">XRX</span>
@@ -429,6 +558,69 @@ export default function Home() {
             </div>
           </div>
         </div>
+
+        {/* CHAT OVERLAY */}
+        <AnimatePresence>
+          {chatOpen && (
+            <motion.div
+              initial={{ x: 400, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 400, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="absolute right-0 top-16 bottom-0 w-[400px] bg-slate-950/95 backdrop-blur-xl border-l border-slate-800 shadow-2xl z-30 flex flex-col"
+            >
+              <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-cyan-400" />
+                  <span className="font-bold text-sm text-white">Neural Chat</span>
+                </div>
+                <button onClick={() => setChatOpen(false)} className="text-slate-400 hover:text-white">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {chatHistory.length === 0 && (
+                  <div className="text-center mt-10 text-slate-500 text-sm">
+                    <p>Ask about the knowledge graph.</p>
+                    <p className="text-xs opacity-50 mt-1">"What is Samsung?"</p>
+                  </div>
+                )}
+                {chatHistory.map((msg, i) => (
+                  <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${msg.role === 'user'
+                      ? 'bg-cyan-600 text-white rounded-tr-sm'
+                      : 'bg-slate-800 text-slate-200 rounded-tl-sm border border-slate-700'
+                      }`}>
+                      {msg.content}
+                    </div>
+                  </div>
+                ))}
+                <div ref={chatEndRef} />
+              </div>
+
+              <form onSubmit={handleChatSubmit} className="p-4 bg-slate-900/50 border-t border-slate-800">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    placeholder="Ask a question..."
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-4 pr-10 py-3 text-sm text-white focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 outline-none placeholder:text-slate-600"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!chatInput.trim()}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-cyan-500 text-white rounded-lg hover:bg-cyan-400 disabled:opacity-50 disabled:hover:bg-cyan-500 transition-colors"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
       </main>
     </div>
   );

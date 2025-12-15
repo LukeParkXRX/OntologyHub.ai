@@ -83,9 +83,12 @@ class IngestionService:
         
         for doc in graph_documents:
             for node in doc.nodes:
+                # Standardize Label for Vector Index (Concept)
+                node.properties["original_type"] = node.type
+                node.type = "Concept"
+
                 # Embedding content: ID + Type ( + Description if we had it, but currently LLMGraphTransformer doesn't output it easily)
-                # Ideally we'd extract descriptions too, but for MVP we use ID.
-                text_to_embed = f"{node.id} ({node.type})"
+                text_to_embed = f"{node.id} ({node.properties['original_type']})"
                 if embeddings:
                     # Synchronous embedding generation (batching would be better for scale)
                     vector = await embeddings.aembed_query(text_to_embed)
