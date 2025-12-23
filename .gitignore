@@ -1,0 +1,14 @@
+node_modules/
+__pycache__/
+*.pyc
+.env
+.env.local
+.DS_Store
+.vscode/
+.idea/
+backend/venv/
+backend/server.log
+frontend/.next/
+frontend/out/
+frontend/build/
+mn_data/

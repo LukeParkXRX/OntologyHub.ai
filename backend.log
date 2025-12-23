@@ -1,0 +1,161 @@
+INFO:     Will watch for changes in these directories: ['/Users/luke_macmini/Library/Mobile Documents/com~apple~CloudDocs/Antigravity_Dev/OntologyHub.AI_V2/backend']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [76410] using StatReload
+/Users/luke_macmini/Library/Mobile Documents/com~apple~CloudDocs/Antigravity_Dev/OntologyHub.AI_V2/backend/parser/extractor.py:4: FutureWarning: 
+
+All support for the `google.generativeai` package has ended. It will no longer be receiving 
+updates or bug fixes. Please switch to the `google.genai` package as soon as possible.
+See README for more details:
+
+https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
+
+  import google.generativeai as genai
+INFO:     Started server process [76523]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:neo4j.notifications:Received notification from DBMS server: <GqlStatusObject gql_status='03N90', status_description="info: cartesian product. The disconnected pattern '(a), (b)' builds a cartesian product. A cartesian product may produce a large amount of data and slow down query processing.", position=<SummaryInputPosition line=2, column=13, offset=13>, raw_classification='PERFORMANCE', classification=<NotificationClassification.PERFORMANCE: 'PERFORMANCE'>, raw_severity='INFORMATION', severity=<NotificationSeverity.INFORMATION: 'INFORMATION'>, diagnostic_record={'_classification': 'PERFORMANCE', '_severity': 'INFORMATION', '_position': {'offset': 13, 'line': 2, 'column': 13}, 'OPERATION': '', 'OPERATION_CODE': '0', 'CURRENT_SCHEMA': '/'}> for query: '\n            MATCH (a), (b)\n            WHERE a._temp_id = $from_id AND b._temp_id = $to_id\n            MERGE (a)-[r:EXPERIENCED]->(b)\n            SET r += $rprops\n            '
+INFO:neo4j.notifications:Received notification from DBMS server: <GqlStatusObject gql_status='03N90', status_description="info: cartesian product. The disconnected pattern '(a), (b)' builds a cartesian product. A cartesian product may produce a large amount of data and slow down query processing.", position=<SummaryInputPosition line=2, column=13, offset=13>, raw_classification='PERFORMANCE', classification=<NotificationClassification.PERFORMANCE: 'PERFORMANCE'>, raw_severity='INFORMATION', severity=<NotificationSeverity.INFORMATION: 'INFORMATION'>, diagnostic_record={'_classification': 'PERFORMANCE', '_severity': 'INFORMATION', '_position': {'offset': 13, 'line': 2, 'column': 13}, 'OPERATION': '', 'OPERATION_CODE': '0', 'CURRENT_SCHEMA': '/'}> for query: '\n            MATCH (a), (b)\n            WHERE a._temp_id = $from_id AND b._temp_id = $to_id\n            MERGE (a)-[r:BELONGS_TO]->(b)\n            SET r += $rprops\n            '
+INFO:neo4j.notifications:Received notification from DBMS server: <GqlStatusObject gql_status='03N90', status_description="info: cartesian product. The disconnected pattern '(a), (b)' builds a cartesian product. A cartesian product may produce a large amount of data and slow down query processing.", position=<SummaryInputPosition line=2, column=13, offset=13>, raw_classification='PERFORMANCE', classification=<NotificationClassification.PERFORMANCE: 'PERFORMANCE'>, raw_severity='INFORMATION', severity=<NotificationSeverity.INFORMATION: 'INFORMATION'>, diagnostic_record={'_classification': 'PERFORMANCE', '_severity': 'INFORMATION', '_position': {'offset': 13, 'line': 2, 'column': 13}, 'OPERATION': '', 'OPERATION_CODE': '0', 'CURRENT_SCHEMA': '/'}> for query: '\n            MATCH (a), (b)\n            WHERE a._temp_id = $from_id AND b._temp_id = $to_id\n            MERGE (a)-[r:HAS_TRAIT]->(b)\n            SET r += $rprops\n            '
+INFO:neo4j.notifications:Received notification from DBMS server: <GqlStatusObject gql_status='03N90', status_description="info: cartesian product. The disconnected pattern '(a), (b)' builds a cartesian product. A cartesian product may produce a large amount of data and slow down query processing.", position=<SummaryInputPosition line=2, column=13, offset=13>, raw_classification='PERFORMANCE', classification=<NotificationClassification.PERFORMANCE: 'PERFORMANCE'>, raw_severity='INFORMATION', severity=<NotificationSeverity.INFORMATION: 'INFORMATION'>, diagnostic_record={'_classification': 'PERFORMANCE', '_severity': 'INFORMATION', '_position': {'offset': 13, 'line': 2, 'column': 13}, 'OPERATION': '', 'OPERATION_CODE': '0', 'CURRENT_SCHEMA': '/'}> for query: '\n            MATCH (a), (b)\n            WHERE a._temp_id = $from_id AND b._temp_id = $to_id\n            MERGE (a)-[r:HAS_TRAIT]->(b)\n            SET r += $rprops\n            '
+INFO:neo4j.notifications:Received notification from DBMS server: <GqlStatusObject gql_status='03N90', status_description="info: cartesian product. The disconnected pattern '(a), (b)' builds a cartesian product. A cartesian product may produce a large amount of data and slow down query processing.", position=<SummaryInputPosition line=2, column=13, offset=13>, raw_classification='PERFORMANCE', classification=<NotificationClassification.PERFORMANCE: 'PERFORMANCE'>, raw_severity='INFORMATION', severity=<NotificationSeverity.INFORMATION: 'INFORMATION'>, diagnostic_record={'_classification': 'PERFORMANCE', '_severity': 'INFORMATION', '_position': {'offset': 13, 'line': 2, 'column': 13}, 'OPERATION': '', 'OPERATION_CODE': '0', 'CURRENT_SCHEMA': '/'}> for query: '\n            MATCH (a), (b)\n            WHERE a._temp_id = $from_id AND b._temp_id = $to_id\n            MERGE (a)-[r:VALUES]->(b)\n            SET r += $rprops\n            '
+INFO:neo4j.notifications:Received notification from DBMS server: <GqlStatusObject gql_status='03N90', status_description="info: cartesian product. The disconnected pattern '(a), (b)' builds a cartesian product. A cartesian product may produce a large amount of data and slow down query processing.", position=<SummaryInputPosition line=2, column=13, offset=13>, raw_classification='PERFORMANCE', classification=<NotificationClassification.PERFORMANCE: 'PERFORMANCE'>, raw_severity='INFORMATION', severity=<NotificationSeverity.INFORMATION: 'INFORMATION'>, diagnostic_record={'_classification': 'PERFORMANCE', '_severity': 'INFORMATION', '_position': {'offset': 13, 'line': 2, 'column': 13}, 'OPERATION': '', 'OPERATION_CODE': '0', 'CURRENT_SCHEMA': '/'}> for query: '\n            MATCH (a), (b)\n            WHERE a._temp_id = $from_id AND b._temp_id = $to_id\n            MERGE (a)-[r:CAN_PERFORM]->(b)\n            SET r += $rprops\n            '
+INFO:     127.0.0.1:50028 - "POST /ingest HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50035 - "GET /graph HTTP/1.1" 200 OK
+/Users/luke_macmini/Library/Mobile Documents/com~apple~CloudDocs/Antigravity_Dev/OntologyHub.AI_V2/backend/parser/web_search.py:9: RuntimeWarning: This package (`duckduckgo_search`) has been renamed to `ddgs`! Use `pip install ddgs` instead.
+  results = DDGS().text(keyword, max_results=max_results)
+INFO:primp:response: https://www.bing.com/search?q=%EC%8A%88%ED%8D%BC%EB%A9%98 200
+Starting Concept Ingestion for: 슈퍼멘
+Web Search Context Length: 580
+Extracted Nodes: 8
+INFO:     127.0.0.1:50083 - "POST /ingest/search HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50090 - "GET /graph HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'server.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [76523]
+/Users/luke_macmini/Library/Mobile Documents/com~apple~CloudDocs/Antigravity_Dev/OntologyHub.AI_V2/backend/parser/extractor.py:4: FutureWarning: 
+
+All support for the `google.generativeai` package has ended. It will no longer be receiving 
+updates or bug fixes. Please switch to the `google.genai` package as soon as possible.
+See README for more details:
+
+https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
+
+  import google.generativeai as genai
+INFO:     Started server process [77880]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+/Users/luke_macmini/Library/Mobile Documents/com~apple~CloudDocs/Antigravity_Dev/OntologyHub.AI_V2/backend/parser/web_search.py:9: RuntimeWarning: This package (`duckduckgo_search`) has been renamed to `ddgs`! Use `pip install ddgs` instead.
+  results = DDGS().text(keyword, max_results=max_results)
+INFO:primp:response: https://www.bing.com/search?q=%ED%94%BC%EC%B9%B4%EC%B8%84 200
+Starting Concept Ingestion for: 피카츄
+INFO:     127.0.0.1:50569 - "POST /ingest/search HTTP/1.1" 200 OK
+/Users/luke_macmini/Library/Mobile Documents/com~apple~CloudDocs/Antigravity_Dev/OntologyHub.AI_V2/backend/parser/web_search.py:9: RuntimeWarning: This package (`duckduckgo_search`) has been renamed to `ddgs`! Use `pip install ddgs` instead.
+  results = DDGS().text(keyword, max_results=max_results)
+INFO:primp:response: https://www.bing.com/search?q=%ED%8F%AC%EC%BC%93%EB%AA%AC 200
+Starting Concept Ingestion for: 포켓몬
+INFO:     127.0.0.1:50584 - "POST /ingest/search HTTP/1.1" 200 OK
+/Users/luke_macmini/Library/Mobile Documents/com~apple~CloudDocs/Antigravity_Dev/OntologyHub.AI_V2/backend/parser/web_search.py:9: RuntimeWarning: This package (`duckduckgo_search`) has been renamed to `ddgs`! Use `pip install ddgs` instead.
+  results = DDGS().text(keyword, max_results=max_results)
+INFO:primp:response: https://www.bing.com/search?q=%ED%8F%AC%EC%BC%93%EB%AA%AC%EC%8A%A4%ED%84%B0+%EC%86%8C%EB%93%9C 200
+Starting Concept Ingestion for: 포켓몬스터 소드
+INFO:     127.0.0.1:50641 - "POST /ingest/search HTTP/1.1" 200 OK
+/Users/luke_macmini/Library/Mobile Documents/com~apple~CloudDocs/Antigravity_Dev/OntologyHub.AI_V2/backend/parser/web_search.py:9: RuntimeWarning: This package (`duckduckgo_search`) has been renamed to `ddgs`! Use `pip install ddgs` instead.
+  results = DDGS().text(keyword, max_results=max_results)
+INFO:primp:response: https://www.bing.com/search?q=%EC%8A%88%ED%8D%BC%EB%A7%A8 200
+Starting Concept Ingestion for: 슈퍼맨
+INFO:     127.0.0.1:50930 - "POST /ingest/search HTTP/1.1" 200 OK
+/Users/luke_macmini/Library/Mobile Documents/com~apple~CloudDocs/Antigravity_Dev/OntologyHub.AI_V2/backend/parser/web_search.py:9: RuntimeWarning: This package (`duckduckgo_search`) has been renamed to `ddgs`! Use `pip install ddgs` instead.
+  results = DDGS().text(keyword, max_results=max_results)
+INFO:primp:response: https://www.bing.com/search?q=%ED%81%AC%EB%A6%BD%ED%86%A4+%ED%96%89%EC%84%B1 200
+Starting Concept Ingestion for: 크립톤 행성
+INFO:     127.0.0.1:50941 - "POST /ingest/search HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'analysis/network_stats.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [77880]
+/Users/luke_macmini/Library/Mobile Documents/com~apple~CloudDocs/Antigravity_Dev/OntologyHub.AI_V2/backend/parser/extractor.py:4: FutureWarning: 
+
+All support for the `google.generativeai` package has ended. It will no longer be receiving 
+updates or bug fixes. Please switch to the `google.genai` package as soon as possible.
+See README for more details:
+
+https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
+
+  import google.generativeai as genai
+INFO:     Started server process [78919]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'server.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [78919]
+/Users/luke_macmini/Library/Mobile Documents/com~apple~CloudDocs/Antigravity_Dev/OntologyHub.AI_V2/backend/parser/extractor.py:4: FutureWarning: 
+
+All support for the `google.generativeai` package has ended. It will no longer be receiving 
+updates or bug fixes. Please switch to the `google.genai` package as soon as possible.
+See README for more details:
+
+https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
+
+  import google.generativeai as genai
+INFO:     Started server process [79077]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+/Users/luke_macmini/Library/Mobile Documents/com~apple~CloudDocs/Antigravity_Dev/OntologyHub.AI_V2/backend/parser/web_search.py:9: RuntimeWarning: This package (`duckduckgo_search`) has been renamed to `ddgs`! Use `pip install ddgs` instead.
+  results = DDGS().text(keyword, max_results=max_results)
+INFO:primp:response: https://www.bing.com/search?q=%EC%8A%88%ED%8D%BC%EB%A7%A8 200
+Starting Concept Ingestion for: 슈퍼맨
+INFO:     127.0.0.1:51131 - "POST /ingest/search HTTP/1.1" 200 OK
+/Users/luke_macmini/Library/Mobile Documents/com~apple~CloudDocs/Antigravity_Dev/OntologyHub.AI_V2/backend/parser/web_search.py:9: RuntimeWarning: This package (`duckduckgo_search`) has been renamed to `ddgs`! Use `pip install ddgs` instead.
+  results = DDGS().text(keyword, max_results=max_results)
+INFO:primp:response: https://www.bing.com/search?q=%ED%81%AC%EB%A6%BD%ED%86%A4+%ED%96%89%EC%84%B1 200
+Starting Concept Ingestion for: 크립톤 행성
+INFO:     127.0.0.1:51145 - "POST /ingest/search HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'server.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [79077]
+/Users/luke_macmini/Library/Mobile Documents/com~apple~CloudDocs/Antigravity_Dev/OntologyHub.AI_V2/backend/parser/extractor.py:4: FutureWarning: 
+
+All support for the `google.generativeai` package has ended. It will no longer be receiving 
+updates or bug fixes. Please switch to the `google.genai` package as soon as possible.
+See README for more details:
+
+https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
+
+  import google.generativeai as genai
+INFO:     Started server process [79252]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+/Users/luke_macmini/Library/Mobile Documents/com~apple~CloudDocs/Antigravity_Dev/OntologyHub.AI_V2/backend/parser/web_search.py:9: RuntimeWarning: This package (`duckduckgo_search`) has been renamed to `ddgs`! Use `pip install ddgs` instead.
+  results = DDGS().text(keyword, max_results=max_results)
+INFO:primp:response: https://www.bing.com/search?q=%EC%8A%88%ED%8D%BC%EB%A7%A8 200
+WARNING:neo4j.notifications:Received notification from DBMS server: <GqlStatusObject gql_status='01N00', status_description='warn: feature deprecated. CALL subquery without a variable scope clause is deprecated. Use CALL (n) { ... }', position=<SummaryInputPosition line=3, column=9, offset=123>, raw_classification='DEPRECATION', classification=<NotificationClassification.DEPRECATION: 'DEPRECATION'>, raw_severity='WARNING', severity=<NotificationSeverity.WARNING: 'WARNING'>, diagnostic_record={'_classification': 'DEPRECATION', '_severity': 'WARNING', '_position': {'offset': 123, 'line': 3, 'column': 9}, 'OPERATION': '', 'OPERATION_CODE': '0', 'CURRENT_SCHEMA': '/'}> for query: '\n        MATCH (n) WHERE toLower(n.name) CONTAINS toLower($keyword) OR toLower(n.topic) CONTAINS toLower($keyword)\n        CALL {\n            WITH n\n            MATCH (n)-[r]-(m)\n            RETURN m, r\n            LIMIT 50\n        }\n        RETURN n, r, m\n        '
+WARNING:neo4j.notifications:Received notification from DBMS server: <GqlStatusObject gql_status='01N52', status_description='warn: property key does not exist. The property `topic` does not exist in database `neo4j`. Verify that the spelling is correct.', position=<SummaryInputPosition line=2, column=81, offset=81>, raw_classification='UNRECOGNIZED', classification=<NotificationClassification.UNRECOGNIZED: 'UNRECOGNIZED'>, raw_severity='WARNING', severity=<NotificationSeverity.WARNING: 'WARNING'>, diagnostic_record={'_classification': 'UNRECOGNIZED', '_severity': 'WARNING', '_position': {'offset': 81, 'line': 2, 'column': 81}, 'OPERATION': '', 'OPERATION_CODE': '0', 'CURRENT_SCHEMA': '/'}> for query: '\n        MATCH (n) WHERE toLower(n.name) CONTAINS toLower($keyword) OR toLower(n.topic) CONTAINS toLower($keyword)\n        CALL {\n            WITH n\n            MATCH (n)-[r]-(m)\n            RETURN m, r\n            LIMIT 50\n        }\n        RETURN n, r, m\n        '
+Starting Concept Ingestion for: 슈퍼맨
+INFO:     127.0.0.1:51341 - "POST /ingest/search HTTP/1.1" 200 OK
+/Users/luke_macmini/Library/Mobile Documents/com~apple~CloudDocs/Antigravity_Dev/OntologyHub.AI_V2/backend/parser/web_search.py:9: RuntimeWarning: This package (`duckduckgo_search`) has been renamed to `ddgs`! Use `pip install ddgs` instead.
+  results = DDGS().text(keyword, max_results=max_results)
+INFO:primp:response: https://www.bing.com/search?q=%EC%9D%B4%EC%9E%AC%EB%AA%85+%EB%8C%80%ED%86%B5%EB%A0%B9 200
+WARNING:neo4j.notifications:Received notification from DBMS server: <GqlStatusObject gql_status='01N00', status_description='warn: feature deprecated. CALL subquery without a variable scope clause is deprecated. Use CALL (n) { ... }', position=<SummaryInputPosition line=3, column=9, offset=123>, raw_classification='DEPRECATION', classification=<NotificationClassification.DEPRECATION: 'DEPRECATION'>, raw_severity='WARNING', severity=<NotificationSeverity.WARNING: 'WARNING'>, diagnostic_record={'_classification': 'DEPRECATION', '_severity': 'WARNING', '_position': {'offset': 123, 'line': 3, 'column': 9}, 'OPERATION': '', 'OPERATION_CODE': '0', 'CURRENT_SCHEMA': '/'}> for query: '\n        MATCH (n) WHERE toLower(n.name) CONTAINS toLower($keyword) OR toLower(n.topic) CONTAINS toLower($keyword)\n        CALL {\n            WITH n\n            MATCH (n)-[r]-(m)\n            RETURN m, r\n            LIMIT 50\n        }\n        RETURN n, r, m\n        '
+WARNING:neo4j.notifications:Received notification from DBMS server: <GqlStatusObject gql_status='01N52', status_description='warn: property key does not exist. The property `topic` does not exist in database `neo4j`. Verify that the spelling is correct.', position=<SummaryInputPosition line=2, column=81, offset=81>, raw_classification='UNRECOGNIZED', classification=<NotificationClassification.UNRECOGNIZED: 'UNRECOGNIZED'>, raw_severity='WARNING', severity=<NotificationSeverity.WARNING: 'WARNING'>, diagnostic_record={'_classification': 'UNRECOGNIZED', '_severity': 'WARNING', '_position': {'offset': 81, 'line': 2, 'column': 81}, 'OPERATION': '', 'OPERATION_CODE': '0', 'CURRENT_SCHEMA': '/'}> for query: '\n        MATCH (n) WHERE toLower(n.name) CONTAINS toLower($keyword) OR toLower(n.topic) CONTAINS toLower($keyword)\n        CALL {\n            WITH n\n            MATCH (n)-[r]-(m)\n            RETURN m, r\n            LIMIT 50\n        }\n        RETURN n, r, m\n        '
+Starting Concept Ingestion for: 이재명 대통령
+INFO:     127.0.0.1:51439 - "POST /ingest/search HTTP/1.1" 200 OK
+/Users/luke_macmini/Library/Mobile Documents/com~apple~CloudDocs/Antigravity_Dev/OntologyHub.AI_V2/backend/parser/web_search.py:9: RuntimeWarning: This package (`duckduckgo_search`) has been renamed to `ddgs`! Use `pip install ddgs` instead.
+  results = DDGS().text(keyword, max_results=max_results)
+INFO:primp:response: https://www.bing.com/search?q=%EC%8A%88%ED%8D%BC%EB%A7%A8 200
+WARNING:neo4j.notifications:Received notification from DBMS server: <GqlStatusObject gql_status='01N00', status_description='warn: feature deprecated. CALL subquery without a variable scope clause is deprecated. Use CALL (n) { ... }', position=<SummaryInputPosition line=3, column=9, offset=123>, raw_classification='DEPRECATION', classification=<NotificationClassification.DEPRECATION: 'DEPRECATION'>, raw_severity='WARNING', severity=<NotificationSeverity.WARNING: 'WARNING'>, diagnostic_record={'_classification': 'DEPRECATION', '_severity': 'WARNING', '_position': {'offset': 123, 'line': 3, 'column': 9}, 'OPERATION': '', 'OPERATION_CODE': '0', 'CURRENT_SCHEMA': '/'}> for query: '\n        MATCH (n) WHERE toLower(n.name) CONTAINS toLower($keyword) OR toLower(n.topic) CONTAINS toLower($keyword)\n        CALL {\n            WITH n\n            MATCH (n)-[r]-(m)\n            RETURN m, r\n            LIMIT 50\n        }\n        RETURN n, r, m\n        '
+WARNING:neo4j.notifications:Received notification from DBMS server: <GqlStatusObject gql_status='01N52', status_description='warn: property key does not exist. The property `topic` does not exist in database `neo4j`. Verify that the spelling is correct.', position=<SummaryInputPosition line=2, column=81, offset=81>, raw_classification='UNRECOGNIZED', classification=<NotificationClassification.UNRECOGNIZED: 'UNRECOGNIZED'>, raw_severity='WARNING', severity=<NotificationSeverity.WARNING: 'WARNING'>, diagnostic_record={'_classification': 'UNRECOGNIZED', '_severity': 'WARNING', '_position': {'offset': 81, 'line': 2, 'column': 81}, 'OPERATION': '', 'OPERATION_CODE': '0', 'CURRENT_SCHEMA': '/'}> for query: '\n        MATCH (n) WHERE toLower(n.name) CONTAINS toLower($keyword) OR toLower(n.topic) CONTAINS toLower($keyword)\n        CALL {\n            WITH n\n            MATCH (n)-[r]-(m)\n            RETURN m, r\n            LIMIT 50\n        }\n        RETURN n, r, m\n        '
+Starting Concept Ingestion for: 슈퍼맨
+INFO:     127.0.0.1:51462 - "POST /ingest/search HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51485 - "GET /graph HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [79252]
+INFO:     Stopping reloader process [76410]
