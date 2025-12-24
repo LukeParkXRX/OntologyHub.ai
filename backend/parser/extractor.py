@@ -1,42 +1,38 @@
 import os
 import json
 from dotenv import load_dotenv
-import google.generativeai as genai
+import os
+import json
+from dotenv import load_dotenv
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import JsonOutputParser
 from .extractor_prompt import get_extraction_prompt, get_concept_extraction_prompt
 
 # Load environment variables
 load_dotenv()
 
-# Configure Gemini
-GENAI_API_KEY = os.getenv("GEMINI_API_KEY")
-if GENAI_API_KEY:
-    genai.configure(api_key=GENAI_API_KEY)
+# Configure LLM
+llm = ChatGoogleGenerativeAI(
+    model="gemini-1.5-pro", # Use Pro for reasoning
+    google_api_key=os.getenv("GEMINI_API_KEY"),
+    temperature=0
+)
+
+parser = JsonOutputParser()
 
 def extract_graph_elements(text: str, document_date: str = None) -> dict:
     """
-    Extracts graph nodes and relationships from text using Google Gemini.
+    Extracts graph nodes and relationships from text using Google Gemini (LangChain).
     """
-    if not GENAI_API_KEY:
-        print("Error: GEMINI_API_KEY not found in .env")
-        return {"nodes": [], "relationships": []}
-
-    prompt = get_extraction_prompt(text, document_date)
-    
     try:
-        model = genai.GenerativeModel('gemini-3-flash-preview') # User requested gemini-3-flash (Likely preview)
+        raw_prompt = get_extraction_prompt(text, document_date)
+        prompt = PromptTemplate.from_template("{input}")
         
-        # Gemini specific constraint for JSON
-        generation_config = genai.GenerationConfig(
-            response_mime_type="application/json"
-        )
-
-        response = model.generate_content(
-            prompt,
-            generation_config=generation_config
-        )
+        chain = prompt | llm | parser
         
-        content = response.text
-        return json.loads(content)
+        result = chain.invoke({"input": raw_prompt})
+        return result
         
     except Exception as e:
         print(f"Error during extraction with Gemini: {e}")
@@ -44,28 +40,16 @@ def extract_graph_elements(text: str, document_date: str = None) -> dict:
 
 def extract_concept_graph(keyword: str, context_text: str) -> dict:
     """
-    Extracts concept ontology from web search context using Gemini.
+    Extracts concept ontology from web search context using Gemini (LangChain).
     """
-    if not GENAI_API_KEY:
-        print("Error: GEMINI_API_KEY not found in .env")
-        return {"nodes": [], "relationships": []}
-
-    prompt = get_concept_extraction_prompt(keyword, context_text)
-    
     try:
-        model = genai.GenerativeModel('gemini-3-flash-preview') 
+        raw_prompt = get_concept_extraction_prompt(keyword, context_text)
+        prompt = PromptTemplate.from_template("{input}")
         
-        generation_config = genai.GenerationConfig(
-            response_mime_type="application/json"
-        )
-
-        response = model.generate_content(
-            prompt,
-            generation_config=generation_config
-        )
+        chain = prompt | llm | parser
         
-        content = response.text
-        return json.loads(content)
+        result = chain.invoke({"input": raw_prompt})
+        return result
         
     except Exception as e:
         print(f"Error during concept extraction with Gemini: {e}")

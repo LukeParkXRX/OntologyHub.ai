@@ -31,6 +31,18 @@
 - **Memory Timeline**: 그래프 내의 시간 정보를 추출하여 과거의 특정 시점으로 "기억의 시간 여행" 기능 제공.
 - **Interactive Controls**: 중요도 기반 필터링(Peeling Layers) 및 Universe Reset 기능.
 
+### 🔌 Connectivity & Expansion
+### 🔌 Connectivity & Expansion
+- **[Completed] Module B: Universal File Loader (Data Digestion)**
+    - 이력서, 일기장, 포트폴리오 등 비정형 파일을 드래그하면 알아서 분류하여 그래프에 흡수.
+    - **Magic Input**: 텍스트 채팅과 파일 처리를 통합한 지능형 입력바.
+    - **Enhanced Inference**: `Gemini 1.5 Pro` 기반의 고정밀 추론 엔진 탑재 (Unknown 노드 방지).
+- **[In Progress] Module C: ALIVE MCP Server**
+    - **Protocol**: 외부 AI(Claude, GPT)가 내 그래프를 도구로 쓸 수 있게 하는 **MCP(Model Context Protocol)** 지원.
+    - **Resource**: `alive://me/profile` (자아 요약).
+    - **Tool**: `search_my_memory` (맥락 기반 기억 검색).
+
+
 ---
 
 ## 🛠 Tech Stack

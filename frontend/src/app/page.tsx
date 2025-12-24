@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
 const Graph3D = dynamic(() => import('../components/Graph3D'), { ssr: false });
+import MagicInput from '../components/MagicInput';
 
 // Helper to merge graph data
 const mergeGraphData = (existing: any, incoming: any) => {
@@ -232,7 +233,7 @@ export default function Home() {
     // --- State ---
     const [entryMode, setEntryMode] = useState<'intro' | 'identity' | 'concept'>('intro');
     const [messages, setMessages] = useState<{ role: 'user' | 'agent', text: string, context?: string }[]>([]);
-    const [input, setInput] = useState('');
+    // input state removed, handled by MagicInput
     const [isLoading, setIsLoading] = useState(false);
     const [graphData, setGraphData] = useState<{ nodes: any[], links: any[] }>({ nodes: [], links: [] });
 
@@ -412,10 +413,9 @@ export default function Home() {
         }
     };
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!e.target.files?.length) return;
+    const handleFileUpload = async (file: File) => {
+        if (!file) return;
 
-        const file = e.target.files[0];
         const formData = new FormData();
         formData.append('file', file);
 
@@ -436,7 +436,6 @@ export default function Home() {
             setMessages(prev => [...prev, { role: 'agent', text: '파일 처리 중 오류가 발생했습니다.' }]);
         } finally {
             setIsLoading(false);
-            // Reset input ?
         }
     };
 
@@ -499,11 +498,11 @@ export default function Home() {
         }
     };
 
-    const handleSend = async () => {
-        if (!input.trim()) return;
-        const userInput = input;
+    const handleSend = async (message: string) => {
+        if (!message.trim()) return;
+        const userInput = message;
         setMessages(prev => [...prev, { role: 'user', text: userInput }]);
-        setInput('');
+
         setIsLoading(true);
 
         try {
@@ -690,6 +689,7 @@ export default function Home() {
 
                 {/* Input Area (Dynamic Height) */}
                 <div className="p-6 bg-[#1E1F20] border-t border-[#3C4043]">
+                    {/* Magic Input Integration */}
                     {/* Interaction Mode Switch (Identity Only) */}
                     {entryMode === 'identity' && (
                         <div className="flex gap-4 mb-4">
@@ -708,38 +708,11 @@ export default function Home() {
                         </div>
                     )}
 
-                    <div className="relative flex items-center bg-[#28292A] rounded-full border border-[#3C4043] focus-within:border-[#8AB4F8] transition-colors shadow-inner">
-                        <input
-                            type="text"
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSend();
-                            }}
-                            placeholder={interactionMode === 'chat' ? "Ask anything..." : (entryMode === 'identity' ? "Type a memory or upload file..." : "Expand this concept...")}
-                            className="flex-1 bg-transparent border-none focus:ring-0 text-[#E3E3E3] px-4 py-3 text-sm"
-                        />
-                        <button onClick={handleSend} className="p-3 text-[#C4C7C5] hover:text-white">
-                            <Send className="w-4 h-4" />
-                        </button>
-                    </div>
-                    {/* File Upload for Identity Mode */}
-                    {entryMode === 'identity' && interactionMode === 'ingest' && (
-                        <div className="mt-3">
-                            <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-[#3C4043] rounded-xl cursor-pointer hover:border-[#4285F4] hover:bg-[#4285F4]/5 transition-all group">
-                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                    <span className="text-2xl mb-1 group-hover:scale-110 transition-transform">📄</span>
-                                    <p className="text-[10px] text-[#8E918F] group-hover:text-[#4285F4] font-medium">Upload Resume / Diary (PDF, TXT)</p>
-                                </div>
-                                <input
-                                    type="file"
-                                    className="hidden"
-                                    accept=".pdf,.txt,.md"
-                                    onChange={handleFileUpload}
-                                />
-                            </label>
-                        </div>
-                    )}
+                    <MagicInput
+                        onSendMessage={handleSend}
+                        onFileUpload={handleFileUpload}
+                        isProcessing={isLoading}
+                    />
                 </div>
             </div>
 

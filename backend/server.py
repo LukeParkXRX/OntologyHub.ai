@@ -12,6 +12,8 @@ from dotenv import load_dotenv
 # Internal Imports
 # Internal Imports
 from parser.extractor import extract_graph_elements, extract_concept_graph
+from parser.file_loader import load_file_content
+from agent.classifier import classify_and_extract
 from parser.ingest import Neo4jIngestor
 from parser.web_search import perform_web_search
 from analysis.network_stats import enrich_graph_data
@@ -401,42 +403,49 @@ async def ingest_search_endpoint(req: IngestRequest):
 
 @app.post("/ingest/file")
 async def ingest_file_endpoint(file: UploadFile = File(...)):
-    """File Ingestion (PDF/TXT)"""
+    """File Ingestion (PDF/TXT/DOCX) using Module B Pipeline"""
     try:
-        content = await file.read()
-        filename = file.filename.lower()
-        extracted_text = ""
-
-        if filename.endswith('.pdf'):
-            reader = PdfReader(io.BytesIO(content))
-            for page in reader.pages:
-                extracted_text += page.extract_text() + "\n"
-        elif filename.endswith('.txt') or filename.endswith('.md'):
-            extracted_text = content.decode('utf-8')
-        else:
-            raise HTTPException(status_code=400, detail="Unsupported file format.")
-
-        if not extracted_text.strip():
-            raise HTTPException(status_code=400, detail="Empty file content.")
-
-        context_text = f"Source Document: {file.filename}\n{extracted_text}"
-        extracted_data = extract_graph_elements(context_text)
+        # 1. Load Content
+        extracted_text = await load_file_content(file)
         
-        # [ALIVE] Inject Identity Source Tag
-        for node in extracted_data.get("nodes", []):
+        if not extracted_text.strip():
+            raise HTTPException(status_code=400, detail="Empty file content or unsupported format.")
+
+        # 2. Classify & Extract (Graph ETL)
+        # Using the new Module B Logic (LangChain + Gemini)
+        context_text = f"Source Document: {file.filename}\n{extracted_text}"
+        extracted_data = await classify_and_extract(context_text)
+        
+        # 3. Inject Identity Source Tag
+        nodes = extracted_data.get("nodes", [])
+        relationships = extracted_data.get("edges", []) # Classifier returns 'edges'
+        
+        # Normalize 'edges' to 'relationships' if needed by Ingestor
+        # Ingestor expects 'relationships', classifier prompt said 'edges'
+        if not relationships and "relationships" in extracted_data:
+            relationships = extracted_data["relationships"]
+
+        for node in nodes:
             if "properties" not in node: node["properties"] = {}
             node["properties"]["source"] = "user"
-            node["properties"]["layer"] = node.get("layer", "Semantic") # Default to Semantic if missing
+            # Layer is already determined by classifier, but ensure fallback
+            if "layer" not in node: node["layer"] = node.get("label", "Semantic") 
         
+        # 4. Ingest
         ingestor = Neo4jIngestor()
-        ingestor.ingest_batch(extracted_data)
+        # Ingestor.ingest_batch expects 'relationships' key
+        final_data = {
+            "nodes": nodes,
+            "relationships": relationships
+        }
+        ingestor.ingest_batch(final_data)
         ingestor.close()
         
         return {
             "status": "success", 
             "filename": file.filename,
-            "nodes_added": len(extracted_data['nodes']),
-            "edges_added": len(extracted_data['relationships'])
+            "nodes_added": len(nodes),
+            "edges_added": len(relationships)
         }
 
     except Exception as e:

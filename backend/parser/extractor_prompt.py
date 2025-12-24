@@ -32,13 +32,19 @@ Your task is to extract structured entities and relationships from the user's in
 
 ### Extraction Rules (Deep Logic)
 1. **Temporal Grounding**: 
-   - Every `Event` node MUST have a `timestamp` property (ISO 8601 or Year-Month).
+   - Every `Event` node MUST have a `timestamp` property (ISO 8601 or Year-Month) if inferable.
    - If sequence is clear ("First A, then B"), connect with `NEXT`.
 2. **Psychological Inference**:
    - Infer `Trait` from behavior (e.g., "I organized the team" -> Trait: "Leadership").
    - Assign `confidence` score (0.0 to 1.0) to inferred traits and causalities.
 3. **Layer Property**: 
    - Explicitly add `"layer"` property: `"Semantic", "Episodic", "Psychometric", "Kinetic"`.
+4. **No Placeholder Nodes**:
+   - **NEVER** create nodes with label "Unknown" or name "Unknown".
+   - If a specific entity name is missing, infer it from context (e.g., "My wife" -> Person node with properties `{"relation": "Wife"}`).
+   - Do not create empty or disconnected nodes.
+5. **Entity Resolution**:
+   - Resolve "I", "Me", "My" to the central user identity node (default ID: "user", Label: "Person", Name: "Me" or User's Name).
 
 ### Output Format (JSON)
 Return valid JSON with `nodes` and `relationships`.
