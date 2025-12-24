@@ -36,7 +36,7 @@
 - **[Completed] Module B: Universal File Loader (Data Digestion)**
     - 이력서, 일기장, 포트폴리오 등 비정형 파일을 드래그하면 알아서 분류하여 그래프에 흡수.
     - **Magic Input**: 텍스트 채팅과 파일 처리를 통합한 지능형 입력바.
-    - **Enhanced Inference**: `Gemini 1.5 Pro` 기반의 고정밀 추론 엔진 탑재 (Unknown 노드 방지).
+    - **Enhanced Inference**: `Gemini 2.0 Flash` 기반의 고속/고정밀 추론 엔진 탑재 (Unknown 노드 방지).
 - **[In Progress] Module C: ALIVE MCP Server**
     - **Protocol**: 외부 AI(Claude, GPT)가 내 그래프를 도구로 쓸 수 있게 하는 **MCP(Model Context Protocol)** 지원.
     - **Resource**: `alive://me/profile` (자아 요약).
