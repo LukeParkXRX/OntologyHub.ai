@@ -148,9 +148,8 @@ const EntryScreen = ({ onSelectMode }: { onSelectMode: (mode: 'identity' | 'conc
                 </div>
             </div>
 
-            {/* Footer */}
             <div className="absolute bottom-10 text-[10px] text-[#3C4043] font-mono tracking-[0.2em] uppercase">
-                OntologyHub.AI // System Version 2.0.4
+                OntologyHub.AI // System Version 2.0.5
             </div>
         </div>
     );
