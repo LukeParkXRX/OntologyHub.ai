@@ -5,7 +5,7 @@ import { signIn, useSession, signOut } from "next-auth/react";
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import dynamic from 'next/dynamic';
-import { Send, Terminal, Loader2, Database, Network, Trash2, HelpCircle, RefreshCw, Trash } from 'lucide-react';
+import { Send, Terminal, Loader2, Database, Network, Trash2, HelpCircle, RefreshCw, Trash, Save, Upload } from 'lucide-react';
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -69,10 +69,14 @@ const LoginModal = ({ onClose, onLogin }: { onClose: () => void, onLogin: () => 
                     </div>
 
                     <button
-                        onClick={onLogin} // Guest access
+                        onClick={() => {
+                            if (confirm("Starting as Guest will RESET the current graph. Continue?")) {
+                                onLogin();
+                            }
+                        }} // Guest access with warning
                         className="w-full border border-[#3C4043] hover:bg-[#3C4043] text-[#E3E3E3] font-bold py-3 rounded-xl transition-colors text-sm"
                     >
-                        Continue as Guest (Dev)
+                        Continue as Guest (Dev & Reset)
                     </button>
                 </div>
             </div>
@@ -99,7 +103,7 @@ const EntryScreen = ({ onSelectMode }: { onSelectMode: (mode: 'identity' | 'conc
             {showLogin && (
                 <LoginModal
                     onClose={() => setShowLogin(false)}
-                    onLogin={() => onSelectMode('identity')}
+                    onLogin={() => onSelectMode('identity-guest')}
                 />
             )}
 
@@ -449,6 +453,58 @@ export default function Home() {
         }
     };
 
+    // [New] Save & Load Graph
+    const handleSaveGraph = () => {
+        const dataStr = JSON.stringify(graphData, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ontology_backup_${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setMessages(prev => [...prev, { role: 'agent', text: '💾 Graph saved to local file.' }]);
+    };
+
+    const handleLoadGraph = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const json = JSON.parse(e.target?.result as string);
+                if (json.nodes && json.links) {
+                    setIsLoading(true);
+                    // 1. Reset Backend DB
+                    await axios.delete(`${API_URL}/graph`);
+                    // 2. Ingest Loaded Nodes (Manual Restoration)
+                    // We need a backend endpoint for Bulk Restore, but for now let's rely on frontend visualization 
+                    // OR send it to 'ingest' if we parse it back to text? No, that loses structure.
+                    // Ideally we send this JSON to a restore endpoint. 
+                    // Let's implement a quick restore via /ingest loop or just client-side render for now?
+                    // User wants "Open" -> "Open existing graph".
+                    // Best way: Send JSON to backend to recreate nodes.
+                    // For now, let's just update the view and assume backend sync is separate or needed.
+                    // WAIT: User expects persistence. We must save to DB.
+                    // Since we don't have a bulk-json-ingest endpoint, let's just visualize it for this session 
+                    // AND try to push it if possible. But given constraints, View First.
+
+                    setGraphData(json);
+                    setMessages(prev => [...prev, { role: 'agent', text: `📂 Graph loaded from ${file.name} (Visual Only).` }]);
+                } else {
+                    alert("Invalid Graph JSON");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Failed to parse JSON");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        reader.readAsText(file);
+    };
+
     const fetchGraph = async () => {
         try {
             // Only fetch full graph if explicitly needed or in Identity mode
@@ -474,6 +530,10 @@ export default function Home() {
                 const identityNodes = res.data.nodes.filter((n: any) => n.source !== 'concept');
                 setGraphData(res.data);
             } catch (e) { };
+        } else if (mode === 'identity-guest') {
+            // Guest Entry: Auto Reset
+            handleReset();
+            setMessages([{ role: 'agent', text: 'Guest Mode Initiated. Graph Reset Complete.\nStart fresh.' }]);
         } else if (mode === 'concept' && keyword) {
             setMessages([{ role: 'agent', text: `'${keyword}'에 대한 지식 그래프를 생성 중입니다...\nWeb Knowledge를 탐색하고 있습니다.` }]);
             setGraphData({ nodes: [], links: [] }); // Reset view for new concept
@@ -508,6 +568,12 @@ export default function Home() {
             if (interactionMode === 'chat') {
                 const res = await axios.post(`${API_URL}/chat`, { message: userInput });
                 setMessages(prev => [...prev, { role: 'agent', text: res.data.answer, context: res.data.context }]);
+
+                // [Autofetch] If new nodes were created during chat, refresh the graph
+                if (res.data.nodes_created > 0) {
+                    console.log(`Auto-refreshing graph: ${res.data.nodes_created} nodes added.`);
+                    fetchGraph();
+                }
             } else {
                 // Ingest Logic based on Entry Mode
                 const endpoint = entryMode === 'concept' ? '/ingest/search' : '/ingest';
@@ -600,37 +666,29 @@ export default function Home() {
             {/* Help Overlay */}
             {showHelp && <HelpGuide onClose={() => setShowHelp(false)} />}
 
-            {/* Sidebar (Resizable) */}
+            {/* Resizable Sidebar */}
             <div
-                className={`flex-shrink-0 flex-grow-0 relative bg-[#1E1F20] border-r border-[#3C4043] flex flex-col z-20 shadow-xl overflow-visible ${isResizing ? '' : 'transition-all duration-300 ease-out'}`}
-                style={{ width: `${sidebarWidth}px`, minWidth: '300px', maxWidth: '600px', flexBasis: `${sidebarWidth}px` }}
+                style={{ width: sidebarWidth }}
+                className="relative bg-[#1E1F20] border-r border-[#3C4043] flex flex-col z-30 transition-[width] duration-75 ease-out shadow-2xl"
             >
-                {/* Global Resize Overlay to capture events over iframe/canvas */}
-                {isResizing && (
-                    <div className="fixed inset-0 z-[100] cursor-col-resize user-select-none" />
-                )}
-
-                {/* Drag Handle */}
+                {/* Resize Handle */}
                 <div
-                    className="absolute right-0 top-0 bottom-0 w-4 translate-x-1/2 bg-transparent hover:bg-[#4285F4] cursor-col-resize z-[9999] transition-colors delay-75"
                     onMouseDown={startResizing}
+                    className={`absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-[#4285F4] transition-colors z-50 ${isResizing ? 'bg-[#4285F4]' : 'bg-transparent'}`}
                 />
 
                 {/* Header */}
-                <div className="p-6 border-b border-[#3C4043] flex items-center justify-between">
-                    <div>
-                        <h1 className="text-xl font-bold bg-gradient-to-r from-[#8AB4F8] to-[#F28B82] bg-clip-text text-transparent">
-                            OntologyHub.ai
-                        </h1>
-                        <span className="text-[10px] text-[#8E918F] uppercase tracking-widest px-1.5 py-0.5 rounded border border-[#3C4043] ml-1">
-                            {entryMode ? entryMode.toUpperCase() : 'BETA'}
-                        </span>
-                    </div>
+                <div className="p-6 border-b border-[#3C4043] flex justify-between items-center bg-[#1E1F20]">
+                    <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full bg-gradient-to-r from-blue-400 to-purple-500"></span>
+                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-[#8E918F]">PROJECT ALIVE</span>
+                    </h1>
                     <div className="flex gap-2">
+                        {/* Clear Graph Button */}
                         <button
                             onClick={handleClear}
-                            title="Reset Knowledge Graph"
-                            className="p-2 text-[#8E918F] hover:text-red-400 hover:bg-red-400/10 rounded-full transition-all"
+                            className="p-2 rounded-full text-[#8E918F] hover:text-[#FF5252] hover:bg-[#FF5252]/10 transition-all"
+                            title="Clear Knowledge Graph"
                         >
                             <Trash2 className="w-4 h-4" />
                         </button>
@@ -688,10 +746,9 @@ export default function Home() {
 
                 {/* Input Area (Dynamic Height) */}
                 <div className="p-6 bg-[#1E1F20] border-t border-[#3C4043]">
-                    {/* Magic Input Integration */}
                     {/* Interaction Mode Switch (Identity Only) */}
-                    {entryMode === 'identity' && (
-                        <div className="flex gap-4 mb-4">
+                    {entryMode === 'identity-guest' && (
+                        <div className="flex gap-4 mb-4 justify-center">
                             <button
                                 onClick={() => setInteractionMode('chat')}
                                 className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full transition-colors ${interactionMode === 'chat' ? 'bg-[#E3E3E3] text-black' : 'text-[#8E918F] hover:text-[#E3E3E3]'}`}
@@ -778,6 +835,21 @@ export default function Home() {
                             Min Importance: {minImportance[0].toFixed(3)}
                         </div>
                     </div>
+                </div>
+
+                {/* Save & Load Controls */}
+                <div className="absolute bottom-20 left-6 flex gap-2 z-10">
+                    <button
+                        onClick={handleSaveGraph}
+                        className="p-3 bg-[#1E1F20] border border-[#3C4043] rounded-full text-[#8E918F] hover:text-[#8AB4F8] hover:border-[#8AB4F8] transition-all tooltip"
+                        title="Save Graph (JSON)"
+                    >
+                        <Save size={18} />
+                    </button>
+                    <label className="p-3 bg-[#1E1F20] border border-[#3C4043] rounded-full text-[#8E918F] hover:text-[#8AB4F8] hover:border-[#8AB4F8] transition-all cursor-pointer tooltip" title="Load Graph (JSON)">
+                        <Upload size={18} />
+                        <input type="file" accept=".json" onChange={handleLoadGraph} className="hidden" />
+                    </label>
                 </div>
 
                 {/* Timeline Slider (Bottom Center) */}

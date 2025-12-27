@@ -9,12 +9,24 @@ const nextConfig: NextConfig = {
         destination: 'http://127.0.0.1:8000/graph',
       },
       {
+        source: '/api/graph/:path*',
+        destination: 'http://127.0.0.1:8000/graph/:path*',
+      },
+      {
         source: '/api/chat',
         destination: 'http://127.0.0.1:8000/chat',
       },
       {
-        source: '/api/reset_graph',
-        destination: 'http://127.0.0.1:8000/reset_graph',
+        source: '/api/ingest',
+        destination: 'http://127.0.0.1:8000/ingest',
+      },
+      {
+        source: '/api/ingest/:path*',
+        destination: 'http://127.0.0.1:8000/ingest/:path*',
+      },
+      {
+        source: '/api/interviewer/:path*',
+        destination: 'http://127.0.0.1:8000/interviewer/:path*',
       },
       {
         source: '/api/auth/ingest',

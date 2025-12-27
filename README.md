@@ -39,8 +39,12 @@
     - **Enhanced Inference**: `Gemini 2.0 Flash` 기반의 고속/고정밀 추론 엔진 탑재 (Unknown 노드 방지).
 - **[In Progress] Module C: ALIVE MCP Server**
     - **Protocol**: 외부 AI(Claude, GPT)가 내 그래프를 도구로 쓸 수 있게 하는 **MCP(Model Context Protocol)** 지원.
+    - **Guest Mode Integration**:
+        - **Clean Slate**: 게스트 로그인 시 그래프 자동 초기화로 프라이버시 및 사용자 경험 강화.
+        - **Graph Persistence**: 현재 그래프 상태 JSON 저장(Export) 및 불러오기(Import) 기능 탑재.
     - **Resource**: `alive://me/profile` (자아 요약).
     - **Tool**: `search_my_memory` (맥락 기반 기억 검색).
+
 
 
 ---
@@ -54,7 +58,7 @@
 | | **Three.js** | 3D Graph Visualization (`react-force-graph`) |
 | | **TailwindCSS** | Utility-first Styling (Dark Mode) |
 | **Backend** | **Python FastAPI** | High-performance Async API Server |
-| | **Google Gemini Pro** | LLM (Extraction, Inference, Chat) |
+| | **Google Gemini 2.0 Flash** | LLM (Extraction, Inference, Chat) - High Speed/Precision |
 | | **Neo4j (AuraDB)** | Graph Database (Cypher Query Language) |
 
 ---

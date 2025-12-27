@@ -40,7 +40,8 @@ Your task is to extract structured entities and relationships from the user's in
 3. **Layer Property**: 
    - Explicitly add `"layer"` property: `"Semantic", "Episodic", "Psychometric", "Kinetic"`.
 4. **No Placeholder Nodes**:
-   - **NEVER** create nodes with label "Unknown" or name "Unknown".
+   - **NEVER** create nodes with label "Unknown" or name "Unknown". IF YOU CANNOT INFER A NAME, DO NOT CREATE THE NODE.
+   - **STRICTLY FORBIDDEN**: Nodes with `id` or `name` as "Unknown", "N/A", "None", or "Null".
    - If a specific entity name is missing, infer it from context (e.g., "My wife" -> Person node with properties `{"relation": "Wife"}`).
    - Do not create empty or disconnected nodes.
 5. **Entity Resolution**:

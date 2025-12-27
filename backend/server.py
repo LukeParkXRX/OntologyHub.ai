@@ -32,6 +32,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     context: Optional[str] = None
+    nodes_created: int = 0
 
 class IngestRequest(BaseModel):
     text: str
@@ -184,6 +185,7 @@ async def chat_endpoint(req: ChatRequest):
         
         # [ALIVE] Auto-Ingestion (Active Learning)
         # Extract and save knowledge from user's message immediately
+        extracted_data = {}
         try:
             print(f"Auto-Ingesting Chat: {req.message}")
             extracted_data = extract_graph_elements(req.message)
@@ -217,11 +219,11 @@ async def chat_endpoint(req: ChatRequest):
         if next_q:
             answer += f"\n\n(Interviewer): {next_q}"
 
-        return ChatResponse(answer=answer, context=context)
+        return ChatResponse(answer=answer, context=context, nodes_created=len(extracted_data.get("nodes", [])))
     except Exception as e:
         print(f"Chat Error: {e}")
         # Build a safe fallback response
-        return ChatResponse(answer="I am listening. Tell me more about yourself.", context="Error Fallback")
+        return ChatResponse(answer="I am listening. Tell me more about yourself.", context="Error Fallback", nodes_created=0)
 
 @app.post("/ingest")
 async def ingest_endpoint(req: IngestRequest):
