@@ -1,10 +1,9 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, forwardRef, useImperativeHandle, useCallback } from 'react';
 import * as THREE from 'three';
 import SpriteText from 'three-spritetext';
-import * as d3 from 'd3';
 
 // Dynamically import ForceGraph3D to avoid SSR issues
 const ForceGraph3D = dynamic(() => import('react-force-graph-3d'), {
@@ -20,26 +19,32 @@ interface GraphData {
 interface Graph3DProps {
     data: GraphData;
     onNodeClick?: (node: any) => void;
-    arrangeTrigger?: number; // Trigger to reheating simulation
-    highlightNodes?: Set<string>; // New: Nodes to highlight (e.g., recently added)
+    arrangeTrigger?: number;
+    highlightNodes?: Set<string>;
+    selectedNodeId?: string | null;
 }
 
-const Graph3D = ({ data, onNodeClick, arrangeTrigger, highlightNodes }: Graph3DProps) => {
-    // console.log("Graph3D Received Data - Nodes:", data.nodes.length, "Links:", data.links.length);
-    const fgRef = useRef<any>(null);
-    const frameRef = useRef<number>(0);
+// --- Shared Static Resources (Memory Efficiency) ---
+const SHARED_SPHERE_GEO = new THREE.SphereGeometry(1, 24, 24);
+const SHARED_SHELL_GEO = new THREE.IcosahedronGeometry(1, 0);
 
-    // [ALIVE FIX] Deep Clone & Sanitize Data
-    // 1. Prevent D3 mutation side-effects.
-    // 2. Filter dangling links.
-    // 3. Calculate node importance (degree)
+const Graph3D = forwardRef((props: Graph3DProps, ref) => {
+    const { data, onNodeClick, arrangeTrigger, highlightNodes, selectedNodeId } = props;
+    const fgRef = useRef<any>(null);
+
+    // Expose APIs correctly
+    useImperativeHandle(ref, () => ({
+        fgRef: fgRef,
+        graph2ScreenCoords: (x: number, y: number, z: number) => {
+            if (!fgRef.current) return null;
+            return fgRef.current.graph2ScreenCoords(x, y, z);
+        }
+    }));
+
+    // Stable Data Processing
     const cleanData = useMemo(() => {
         if (!data.nodes) return { nodes: [], links: [] };
-
-        const newNodes = data.nodes.map(n => ({
-            ...n,
-            connections: 0
-        }));
+        const newNodes = data.nodes.map(n => ({ ...n, connections: 0 }));
         const nodeMap = new Map(newNodes.map(n => [n.id, n]));
 
         const newLinks = data.links
@@ -51,217 +56,201 @@ const Graph3D = ({ data, onNodeClick, arrangeTrigger, highlightNodes }: Graph3DP
             .map(l => {
                 const s = typeof l.source === 'object' ? l.source.id : l.source;
                 const t = typeof l.target === 'object' ? l.target.id : l.target;
-
-                // Track connections
                 const sourceNode = nodeMap.get(s);
                 const targetNode = nodeMap.get(t);
                 if (sourceNode) sourceNode.connections++;
                 if (targetNode) targetNode.connections++;
-
-                return {
-                    ...l,
-                    source: s,
-                    target: t
-                };
+                return { ...l, source: s, target: t };
             });
 
         return { nodes: Array.from(nodeMap.values()), links: newLinks };
     }, [data]);
 
-    // Animation Loop
+    // Initial / New Data Recenter (Stable)
     useEffect(() => {
-        const tick = () => {
-            if (!fgRef.current) return;
-            try {
-                const camera = fgRef.current.camera();
-                const scene = fgRef.current.scene();
-                const time = Date.now() * 0.001;
+        if (!fgRef.current || !cleanData.nodes.length || selectedNodeId) return;
+        const timer = setTimeout(() => {
+            if (fgRef.current) {
+                fgRef.current.cameraPosition({ x: 400, y: 400, z: 800 }, { x: 0, y: 0, z: 0 }, 1000);
+            }
+        }, 800);
+        return () => clearTimeout(timer);
+    }, [cleanData.nodes.length, selectedNodeId]);
 
-                const dist = camera.position.length();
-
-                scene.traverse((obj: any) => {
-                    // Update Text Opacity (Hero-Centric LOD)
-                    if (obj.isSprite && obj.textHeight) {
-                        const isHero = obj.userData?.isHero;
-                        if (isHero) {
-                            // Heroes always visible, slightly fade with dist
-                            obj.material.opacity = Math.max(0.6, 1.0 - (dist / 1500));
-                        } else {
-                            // Regular nodes fade faster
-                            obj.material.opacity = dist > 600 ? 0 : (dist > 300 ? 1 - ((dist - 300) / 300) : 0.9);
-                        }
-                    }
-
-                    // Shell Rotation
-                    if (obj.userData?.isShell) {
-                        obj.rotation.x += obj.userData.speed;
-                        obj.rotation.y += obj.userData.speed * 0.5;
-                    }
-
-                    // Pulse Glow
-                    if (obj.userData?.isPulse) {
-                        const baseScale = obj.userData.baseScale || 1;
-                        const pulse = 1 + Math.sin(time * 3) * 0.1;
-                        obj.scale.set(baseScale * pulse, baseScale * pulse, baseScale * pulse);
-                    }
-                });
-            } catch (e) { }
-            frameRef.current = requestAnimationFrame(tick);
-        };
-        tick();
-        return () => cancelAnimationFrame(frameRef.current);
-    }, []);
-
-    // Physics Tuning: Anti-Gravity (Strong Repulsion but High Friction)
+    // Physics Engine Setup
     useEffect(() => {
         const fg = fgRef.current;
         if (!fg) return;
-
         const timer = setTimeout(() => {
             if (!fgRef.current) return;
-            try {
-                // High repulsion force
-                fgRef.current.d3Force('charge')?.strength(-1000);
-                fgRef.current.d3Force('link')?.distance(120);
-                fgRef.current.d3Force('center')?.strength(0.05);
-
-                // [Tuning] Calam down expansion
-                fgRef.current.d3VelocityDecay(0.6); // More friction, slower movement
-
-                fgRef.current.d3ReheatSimulation();
-            } catch (err) { }
-        }, 500);
-
+            fgRef.current.d3Force('charge')?.strength(-1000);
+            fgRef.current.d3Force('link')?.distance(130);
+            fgRef.current.d3VelocityDecay(0.7);
+            fgRef.current.d3AlphaDecay(0.04);
+            fgRef.current.d3ReheatSimulation();
+        }, 600);
         return () => clearTimeout(timer);
     }, [cleanData]);
 
+    // --- ACCESSORS ---
+
+    const handleNodeClick = useCallback((node: any) => {
+        const distance = 460;
+        const distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z);
+        if (fgRef.current) {
+            // FIX: Decouple from node object to release OrbitControls lock
+            const target = new THREE.Vector3(node.x, node.y, node.z);
+            fgRef.current.cameraPosition(
+                { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio },
+                target,
+                800 // Faster transition for better responsiveness
+            );
+        }
+        if (onNodeClick) onNodeClick(node);
+    }, [onNodeClick]);
+
+    const nodeObject = useCallback((node: any) => {
+        const group = new THREE.Group();
+        const isRoot = node.isRoot || node.properties?.isRoot || node.id === (node.keyword || '');
+        const isSelected = node.id === selectedNodeId;
+        const hasHeritage = node.generationSource === selectedNodeId && selectedNodeId;
+
+        let color = isRoot ? '#ffffff' : (node.group === 1 ? '#00f0ff' : '#a855f7');
+        if (isSelected) color = '#f97316';
+
+        const baseSize = 4.5;
+        const scaleFactor = Math.min(2.5, 1 + (node.connections || 0) * 0.15);
+        const size = isRoot ? baseSize * 2.2 : baseSize * scaleFactor;
+
+        // Core Sphere
+        const coreMat = new THREE.MeshStandardMaterial({
+            color: color,
+            emissive: color,
+            emissiveIntensity: isSelected ? 3.0 : 1.2,
+            roughness: 0.1,
+            metalness: 0.5
+        });
+        const core = new THREE.Mesh(SHARED_SPHERE_GEO, coreMat);
+        core.scale.setScalar(size);
+
+        if (isSelected) {
+            core.onBeforeRender = () => {
+                const pulse = 1 + Math.sin(Date.now() * 0.003) * 0.06;
+                core.scale.setScalar(size * pulse);
+            };
+        }
+        group.add(core);
+
+        // Shell
+        const shellMat = new THREE.MeshBasicMaterial({
+            color: color,
+            wireframe: true,
+            transparent: true,
+            opacity: isSelected ? 0.6 : 0.15
+        });
+        const shell = new THREE.Mesh(SHARED_SHELL_GEO, shellMat);
+        const shellRadius = size * (isSelected ? 1.6 : 1.3);
+        shell.scale.setScalar(shellRadius);
+
+        const rotSpeed = 0.01 + Math.random() * 0.015;
+        shell.onBeforeRender = () => {
+            shell.rotation.x += rotSpeed * 0.4;
+            shell.rotation.y += rotSpeed * 0.2;
+        };
+        group.add(shell);
+
+        // Label LOD
+        const labelText = node.properties?.name || node.name || node.id || 'Unknown';
+        const sprite = new SpriteText(labelText);
+        sprite.color = isSelected ? '#ffffff' : '#e2e8f0';
+        sprite.textHeight = Math.max(isSelected ? 6.5 : 4.5, size * 0.65);
+        sprite.position.y = size * 3.0;
+        sprite.fontFace = 'Inter, sans-serif';
+        sprite.backgroundColor = isSelected ? 'rgba(249,115,22,0.45)' : 'rgba(2, 4, 10, 0.55)';
+        sprite.padding = 1.4;
+
+        const isHero = isSelected || isRoot || (node.connections || 0) > 8;
+        sprite.onBeforeRender = (renderer, scene, camera) => {
+            const dist = camera.position.distanceTo(group.position);
+            if (isHero) {
+                sprite.material.opacity = Math.max(0.4, 1.0 - (dist / 5000));
+            } else {
+                sprite.material.opacity = dist > 2500 ? 0 : (dist > 1300 ? 1 - ((dist - 1300) / 1200) : 0.9);
+            }
+        };
+        group.add(sprite);
+
+        return group;
+    }, [selectedNodeId]);
+
+    const getLinkWidth = useCallback((link: any) => {
+        const isActive = (link.source.id || link.source) === selectedNodeId || (link.target.id || link.target) === selectedNodeId;
+        return isActive ? 1.8 : 0.6;
+    }, [selectedNodeId]);
+
+    const getLinkColor = useCallback((link: any) => {
+        const isActive = (link.source.id || link.source) === selectedNodeId || (link.target.id || link.target) === selectedNodeId;
+        return isActive ? 'rgba(249, 115, 22, 0.7)' : 'rgba(0, 240, 255, 0.25)';
+    }, [selectedNodeId]);
+
+    const getLinkParticles = useCallback((link: any) => {
+        const isActive = (link.source.id || link.source) === selectedNodeId || (link.target.id || link.target) === selectedNodeId;
+        return isActive ? 10 : 1;
+    }, [selectedNodeId]);
+
+    const getLinkParticleSpeed = useCallback((link: any) => {
+        const isActive = (link.source.id || link.source) === selectedNodeId || (link.target.id || link.target) === selectedNodeId;
+        return isActive ? 0.003 : 0.0006;
+    }, [selectedNodeId]);
+
     return (
-        <div className="w-full h-full bg-[#02040a]">
+        <div className="w-full h-full bg-[#02040a]" style={{ pointerEvents: 'auto' }}>
             <ForceGraph3D
                 ref={fgRef}
+                rendererConfig={{ antialias: true, alpha: true }}
                 graphData={cleanData}
                 nodeLabel="name"
                 showNavInfo={false}
+                cooldownTicks={100}
 
-                // Physics
-                cooldownTicks={120}
-
-                // --- Node Rendering (Sci-Fi Glowing Spheres) ---
-                nodeThreeObject={(node: any) => {
-                    const group = new THREE.Group();
-
-                    // Style by Category/Group
-                    const isRoot = node.isRoot || node.properties?.isRoot || node.id === (node.keyword || '');
-                    const color = isRoot ? '#ffffff' : (node.group === 1 ? '#00f0ff' : '#a855f7');
-
-                    // Scaled by connection importance
-                    const baseSize = 4;
-                    const scaleFactor = Math.min(2.5, 1 + (node.connections || 0) * 0.15);
-                    const size = isRoot ? baseSize * 2.5 : baseSize * scaleFactor;
-
-                    // 1. Core Luminous Sphere
-                    const coreGeo = new THREE.SphereGeometry(size, 32, 32);
-                    const coreMat = new THREE.MeshStandardMaterial({
-                        color: color,
-                        emissive: color,
-                        emissiveIntensity: 1.5,
-                        roughness: 0,
-                    });
-                    const core = new THREE.Mesh(coreGeo, coreMat);
-                    group.add(core);
-
-                    // 2. Neon Halo Ghost
-                    const haloGeo = new THREE.SphereGeometry(size * 1.2, 32, 32);
-                    const haloMat = new THREE.MeshBasicMaterial({
-                        color: color,
-                        transparent: true,
-                        opacity: 0.15,
-                        side: THREE.BackSide
-                    });
-                    const halo = new THREE.Mesh(haloGeo, haloMat);
-                    group.add(halo);
-
-                    // 3. Cyber Shell (Icosahedron Wireframe)
-                    const shellGeo = new THREE.IcosahedronGeometry(size * 1.5, 0);
-                    const shellMat = new THREE.MeshBasicMaterial({
-                        color: color,
-                        wireframe: true,
-                        transparent: true,
-                        opacity: 0.2
-                    });
-                    const shell = new THREE.Mesh(shellGeo, shellMat);
-                    shell.userData = { isShell: true, speed: 0.01 + Math.random() * 0.01 };
-                    group.add(shell);
-
-                    // 4. Label Text
-                    const labelText = node.name || node.id;
-                    const sprite = new SpriteText(labelText);
-                    sprite.color = '#ffffff';
-                    sprite.textHeight = Math.max(4, size * 0.6);
-                    sprite.position.y = size * 2;
-                    sprite.fontFace = 'Inter, sans-serif';
-                    sprite.backgroundColor = 'rgba(0,0,0,0.4)';
-                    sprite.padding = 1;
-
-                    // [Optimization] Tag for smart LOD
-                    sprite.userData = { isHero: isRoot || (node.connections || 0) > 10 };
-
-                    group.add(sprite);
-
-                    return group;
-                }}
+                // Node Props
+                nodeThreeObject={nodeObject}
                 nodeThreeObjectExtend={false}
+                onNodeClick={handleNodeClick}
 
-                // --- Link Rendering (Subtle Glowing Beams) ---
-                linkWidth={0.8}
-                linkColor={() => 'rgba(0, 240, 255, 0.3)'}
-                linkDirectionalParticles={3}
-                linkDirectionalParticleWidth={1.8}
-                linkDirectionalParticleSpeed={0.005}
+                // Link Props
+                linkWidth={getLinkWidth}
+                linkColor={getLinkColor}
+                linkDirectionalParticles={getLinkParticles}
+                linkDirectionalParticleWidth={2.2}
+                linkDirectionalParticleSpeed={getLinkParticleSpeed}
                 linkDirectionalParticleColor={() => '#ffffff'}
-
-                // Directional Arrows
-                linkDirectionalArrowLength={3}
+                linkDirectionalArrowLength={2.5}
                 linkDirectionalArrowRelPos={1}
 
-                // Relation Predicate Labels
+                // Predicate Labels
                 linkThreeObjectExtend={true}
                 linkThreeObject={(link: any) => {
-                    // Avoid 'RELATED' or empty clutter
                     const name = link.name;
-                    if (!name || name === 'RELATED' || name === '') {
-                        return new THREE.Object3D(); // Hidden/Empty object for D3 compatibility
-                    }
-
+                    if (!name || name === 'RELATED' || name === '') return new THREE.Object3D();
                     const sprite = new SpriteText(name);
-                    sprite.color = 'rgba(0, 240, 255, 0.9)';
-                    sprite.textHeight = 3.0;
+                    sprite.color = 'rgba(0, 240, 255, 0.85)';
+                    sprite.textHeight = 3.2;
                     sprite.fontFace = 'Inter, sans-serif';
-                    sprite.backgroundColor = 'rgba(0,0,0,0.7)';
-                    sprite.padding = 0.8;
+                    sprite.backgroundColor = 'rgba(2, 4, 10, 0.75)';
+                    sprite.padding = 1.0;
                     return sprite;
                 }}
                 linkPositionUpdate={(sprite: any, { start, end }: any) => {
-                    const middlePos = Object.assign({}, ...['x', 'y', 'z'].map(c => ({
-                        [c]: start[c] + (end[c] - start[c]) / 2
-                    })));
-                    Object.assign(sprite.position, middlePos);
+                    if (!start || !end) return;
+                    sprite.position.set(
+                        start.x + (end.x - start.x) / 2,
+                        start.y + (end.y - start.y) / 2,
+                        start.z + (end.z - start.z) / 2
+                    );
                 }}
 
                 backgroundColor="#010308"
-
-                onNodeClick={(node: any) => {
-                    const distance = 100;
-                    const distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z);
-                    if (fgRef.current) {
-                        fgRef.current.cameraPosition(
-                            { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio },
-                            node,
-                            1500
-                        );
-                    }
-                    if (onNodeClick) onNodeClick(node);
-                }}
                 enableNodeDrag={true}
                 onNodeDragEnd={(node: any) => {
                     node.fx = node.x;
@@ -269,16 +258,40 @@ const Graph3D = ({ data, onNodeClick, arrangeTrigger, highlightNodes }: Graph3DP
                     node.fz = node.z;
                 }}
             />
+
+            {/* HUD Controls */}
+            <div className="absolute bottom-10 left-10 flex flex-col gap-3 z-50">
+                <button
+                    onClick={() => {
+                        if (fgRef.current) {
+                            fgRef.current.cameraPosition({ x: 400, y: 400, z: 800 }, { x: 0, y: 0, z: 0 }, 1000);
+                        }
+                    }}
+                    className="px-5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white/80 hover:bg-white/10 hover:text-white transition-all backdrop-blur-xl text-xs uppercase tracking-widest font-bold shadow-lg"
+                >
+                    Reset View
+                </button>
+                <button
+                    onClick={() => {
+                        if (fgRef.current && cleanData.nodes.length) {
+                            const root = cleanData.nodes.find(n => n.isRoot || n.properties?.isRoot) || cleanData.nodes[0];
+                            if (root) {
+                                fgRef.current.cameraPosition(
+                                    { x: root.x + 350, y: root.y + 350, z: root.z + 500 },
+                                    { x: root.x, y: root.y, z: root.z },
+                                    800
+                                );
+                            }
+                        }
+                    }}
+                    className="px-5 py-2.5 bg-cyan-500/10 border border-cyan-500/20 rounded-xl text-cyan-400 hover:bg-cyan-500/20 transition-all backdrop-blur-xl text-xs uppercase tracking-widest font-bold shadow-lg"
+                >
+                    Focus Center
+                </button>
+            </div>
         </div>
     );
-};
+});
 
-// Helper
-function hexToRgba(hex: string, alpha: number) {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
+Graph3D.displayName = 'Graph3D';
 export default Graph3D;

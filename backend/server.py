@@ -475,6 +475,33 @@ async def ingest_file_endpoint(file: UploadFile = File(...)):
 from dynamic.fetcher import fetch_dynamic_content
 from dynamic.merger import merge_dynamic_data
 
+class UpdateNodeRequest(BaseModel):
+    id: str  # element_id or normalized id
+    properties: Dict[str, Any]
+
+@app.post("/api/node/update")
+async def update_node(req: UpdateNodeRequest):
+    driver = GraphDatabase.driver(URI, auth=AUTH)
+    try:
+        with driver.session() as session:
+            # Check if it's an elementId or our property id
+            # We'll try both for safety
+            query = """
+            MATCH (n)
+            WHERE elementId(n) = $id OR n.id = $id
+            SET n += $props
+            RETURN n
+            """
+            result = session.run(query, id=req.id, props=req.properties)
+            record = result.single()
+            if not record:
+                raise HTTPException(status_code=404, detail="Node not found")
+            return {"status": "success", "message": "Node updated"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        driver.close()
+
 @app.post("/graph/update")
 async def update_graph_dynamic():
     """

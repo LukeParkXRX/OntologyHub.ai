@@ -74,9 +74,10 @@ def extract_concept_graph(keyword: str, context_text: str) -> dict:
             # Normalize ID: lowercase, stripped, and replace spaces with underscores for stability
             new_id = original_id.lower().strip().replace(" ", "_")
             
-            # Preserve display name if not present
-            if 'name' not in node or not node['name']:
-                node['name'] = original_id # Keep 'Superman' (case) as name, 'superman' (lower) as ID
+            # Preserve display name: Priority: properties.name > top-level name > original_id
+            props_name = node.get('properties', {}).get('name')
+            if not node.get('name'):
+                node['name'] = props_name or original_id
             
             id_map[original_id] = new_id
             node['id'] = new_id

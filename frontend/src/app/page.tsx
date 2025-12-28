@@ -258,6 +258,25 @@ export default function Home() {
         }
     };
 
+    const [bubblePos, setBubblePos] = useState<{ x: number, y: number } | null>(null);
+    const graphRef = useRef<any>(null);
+
+    // [ALIVE] Track selected node position for Speech Bubble
+    useEffect(() => {
+        let animationFrame: number;
+        const updateBubble = () => {
+            if (selectedNode && graphRef.current) {
+                const coords = graphRef.current.graph2ScreenCoords(selectedNode.x, selectedNode.y, selectedNode.z);
+                if (coords) setBubblePos(coords);
+            } else {
+                setBubblePos(null);
+            }
+            animationFrame = requestAnimationFrame(updateBubble);
+        };
+        updateBubble();
+        return () => cancelAnimationFrame(animationFrame);
+    }, [selectedNode]);
+
     const handleFileUpload = async (file: File) => {
         const formData = new FormData();
         formData.append('file', file);
@@ -300,6 +319,33 @@ export default function Home() {
         reader.readAsText(file);
     };
 
+    const [isEditing, setIsEditing] = useState(false);
+    const [editData, setEditData] = useState<any>(null);
+
+    const handleNodeUpdate = async () => {
+        if (!selectedNode || !editData) return;
+        setIsLoading(true);
+        try {
+            await axios.post(`${API_URL}/node/update`, {
+                id: selectedNode.id,
+                properties: editData
+            });
+            // Update local state
+            setGraphData(prev => ({
+                ...prev,
+                nodes: prev.nodes.map(n => n.id === selectedNode.id ? { ...n, ...editData, properties: { ...n.properties, ...editData } } : n)
+            }));
+            setSelectedNode({ ...selectedNode, ...editData });
+            setIsEditing(false);
+            setMessages(prev => [...prev, { role: 'agent', text: "Knowledge entry updated successfully." }]);
+        } catch (e) {
+            console.error(e);
+            setMessages(prev => [...prev, { role: 'agent', text: "Failed to update node." }]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const handleExpandLive = async () => {
         if (!selectedNode) return;
         setIsLoading(true);
@@ -308,9 +354,14 @@ export default function Home() {
         try {
             const res = await axios.post('/api/ingest/search', { text: selectedNode.name });
             if (res.data.status === 'success') {
-                setGraphData(prev => mergeGraphData(prev, { nodes: res.data.nodes, links: res.data.links }));
+                // [ALIVE] Tag new nodes with heritage
+                const heritageNodes = res.data.nodes.map((n: any) => ({
+                    ...n,
+                    generationSource: selectedNode.id
+                }));
+                setGraphData(prev => mergeGraphData(prev, { nodes: heritageNodes, links: res.data.links }));
                 setArrangeTrigger(prev => prev + 1);
-                setMessages(prev => [...prev, { role: 'agent', text: `Knowledge expanded for "${selectedNode.name}".` }]);
+                setMessages(prev => [...prev, { role: 'agent', text: `Knowledge expanded for "${selectedNode.name}". Inherited theme applied.` }]);
             } else {
                 setMessages(prev => [...prev, { role: 'agent', text: `No new info found for "${selectedNode.name}".` }]);
             }
@@ -335,8 +386,7 @@ export default function Home() {
                 isGraphActive={viewMode !== 'hero'}
             />
 
-            <div className={`relative h-full transition-all duration-700 ease-in-out ${showSidebar ? 'ml-64' : 'ml-0'}`}>
-
+            <div className={`relative h-full overflow-hidden ${showSidebar ? 'ml-64' : 'ml-0'}`}>
                 {/* Mode: Hero */}
                 {viewMode === 'hero' && (
                     <HeroView onSearch={handleSearch} />
@@ -346,19 +396,52 @@ export default function Home() {
                 {viewMode !== 'hero' && (
                     <div className="h-full relative animate-in fade-in duration-1000">
                         {/* 3D Visualizer */}
-                        <div className="absolute inset-0 z-0">
+                        <div className="absolute inset-0 z-10" style={{ pointerEvents: 'auto' }}>
                             <Graph3D
+                                ref={graphRef}
                                 data={graphData}
-                                onNodeClick={setSelectedNode}
+                                onNodeClick={(node) => {
+                                    setSelectedNode(node);
+                                    setEditData({
+                                        name: node.name || node.id,
+                                        description: node.description || node.properties?.summary || ""
+                                    });
+                                    setIsEditing(false);
+                                }}
                                 arrangeTrigger={arrangeTrigger}
                                 highlightNodes={highlightNodes}
+                                selectedNodeId={selectedNode?.id}
                             />
                         </div>
 
+                        {/* Floating Speech Bubble */}
+                        {selectedNode && bubblePos && (
+                            <div
+                                className="absolute z-[100] pointer-events-none animate-in fade-in zoom-in duration-200 select-none hidden md:block"
+                                style={{
+                                    left: bubblePos.x,
+                                    top: bubblePos.y,
+                                    transform: 'translate(40px, -50%)'
+                                }}
+                            >
+                                <div className="relative bg-black/80 backdrop-blur-xl border border-white/20 p-4 rounded-2xl max-w-[240px] shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
+                                    {/* Speech Bubble Tail */}
+                                    <div className="absolute left-0 top-1/2 -translate-x-full -translate-y-1/2 w-4 h-4 overflow-hidden">
+                                        <div className="w-full h-full bg-black/80 border-l border-b border-white/20 rotate-45 origin-top-right" />
+                                    </div>
+
+                                    <div className="text-xs text-cyan-400 font-bold uppercase tracking-wider mb-2">Ontology Insight</div>
+                                    <p className="text-[11px] leading-relaxed text-gray-200 line-clamp-4 font-light">
+                                        {selectedNode.properties?.summary || selectedNode.description || "The neural nexus indicates a high probability connection at this nexus point."}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Loading Overlay */}
                         {isLoading && (
-                            <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm pointer-events-none">
-                                <div className="p-8 rounded-full border border-blue-500/30 bg-black/50 animate-pulse">
+                            <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/30 pointer-events-none">
+                                <div className="p-8 rounded-full border border-blue-500/30 bg-black/60 shadow-[0_0_50px_rgba(37,99,235,0.2)] animate-pulse">
                                     <div className="text-blue-400 font-mono tracking-widest text-xs">PROCESSING DATA STREAM...</div>
                                 </div>
                             </div>
@@ -378,9 +461,8 @@ export default function Home() {
                             </div>
                         </div>
 
-                        {/* Bottom Chat/Input Area */}
+                        {/* Bottom Chat Area */}
                         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-full max-w-3xl z-30 px-4">
-                            {/* Chat Bubbles Container */}
                             <div className="mb-4 max-h-[30vh] overflow-y-auto space-y-2 pr-2 custom-scrollbar flex flex-col-reverse">
                                 {[...messages].reverse().map((msg, i) => (
                                     <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -393,7 +475,6 @@ export default function Home() {
                                     </div>
                                 ))}
                             </div>
-
                             <MagicInput
                                 onSendMessage={handleSend}
                                 onFileUpload={handleFileUpload}
@@ -401,43 +482,89 @@ export default function Home() {
                             />
                         </div>
 
-                        {/* Side Panel (Context) */}
+                        {/* Side Panel (Context & Edit) */}
                         {selectedNode && (
-                            <div className="absolute top-4 right-4 bottom-24 w-80 glass-panel p-6 shadow-2xl animate-in slide-in-from-right duration-300 z-20 overflow-hidden flex flex-col">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div>
-                                        <div className="text-xs uppercase tracking-widest text-gray-500 mb-1">{selectedNode.label}</div>
-                                        <h2 className="text-xl font-bold text-white leading-tight">{selectedNode.name || selectedNode.id}</h2>
+                            <div className="absolute top-4 right-4 bottom-32 w-80 glass-panel p-6 shadow-2xl animate-in slide-in-from-right duration-300 z-50 overflow-hidden flex flex-col">
+                                <div className="flex justify-between items-start mb-6">
+                                    <div className="flex-1 mr-2">
+                                        <div className="text-xs uppercase tracking-widest text-cyan-500/80 font-bold mb-1">{selectedNode.label || 'Concept'}</div>
+                                        {isEditing ? (
+                                            <input
+                                                value={editData.name}
+                                                onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                                                className="bg-white/5 border border-white/10 rounded px-2 py-1 text-xl font-bold text-white w-full outline-none focus:border-cyan-500/50"
+                                            />
+                                        ) : (
+                                            <h2 className="text-2xl font-black text-white leading-tight tracking-tight">{selectedNode.name || selectedNode.id}</h2>
+                                        )}
                                     </div>
-                                    <button onClick={() => setSelectedNode(null)} className="text-gray-500 hover:text-white"><X className="w-5 h-5" /></button>
+                                    <button onClick={() => setSelectedNode(null)} className="p-2 hover:bg-white/5 rounded-full transition-colors"><X className="w-5 h-5 text-gray-500" /></button>
                                 </div>
 
-                                <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar pr-2">
-                                    <p className="text-sm text-gray-300 leading-relaxed">
-                                        {selectedNode.description || selectedNode.properties?.description || "No detailed description available in the knowledge base."}
-                                    </p>
-
+                                <div className="flex-1 overflow-y-auto space-y-6 custom-scrollbar pr-2">
                                     <div className="space-y-2">
-                                        {Object.entries(selectedNode).map(([key, value]) => {
-                                            if (['id', 'name', 'label', 'x', 'y', 'z', 'vx', 'vy', 'vz', 'index', 'color', 'val'].includes(key)) return null;
-                                            if (typeof value === 'object') return null;
-                                            return (
-                                                <div key={key} className="flex justify-between border-b border-white/5 pb-1">
-                                                    <span className="text-xs text-gray-500 capitalize">{key}</span>
-                                                    <span className="text-xs text-gray-300 text-right">{String(value)}</span>
-                                                </div>
-                                            )
-                                        })}
+                                        <div className="text-[10px] uppercase text-gray-500 tracking-[0.2em] font-medium">Fact-Check & Essence</div>
+                                        {isEditing ? (
+                                            <textarea
+                                                value={editData.description}
+                                                onChange={(e) => setEditData({ ...editData, description: e.target.value })}
+                                                className="w-full h-32 bg-white/5 border border-white/10 rounded-lg p-3 text-sm text-gray-300 leading-relaxed outline-none focus:border-cyan-500/50 resize-none"
+                                            />
+                                        ) : (
+                                            <p className="text-sm text-gray-300 leading-relaxed font-light">
+                                                {selectedNode.description || selectedNode.properties?.summary || "The neural nexus has not yet provided a detailed rationale for this concept connection."}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div className="pt-4 border-t border-white/5">
+                                        <div className="text-[10px] uppercase text-gray-400 tracking-widest mb-3">Connectivity Data</div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div className="bg-white/5 p-2 rounded-lg">
+                                                <div className="text-[9px] text-gray-500 uppercase">Connections</div>
+                                                <div className="text-sm font-mono text-cyan-400">{selectedNode.connections || 0}</div>
+                                            </div>
+                                            <div className="bg-white/5 p-2 rounded-lg">
+                                                <div className="text-[9px] text-gray-500 uppercase">Layer</div>
+                                                <div className="text-sm font-mono text-purple-400">{selectedNode.layer || 'Semantic'}</div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <button
-                                    onClick={handleExpandLive}
-                                    className="mt-4 w-full py-3 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-xl text-blue-300 text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                                >
-                                    <Maximize2 className="w-4 h-4" />
-                                    Expand Knowledge
-                                </button>
+                                <div className="mt-6 space-y-3">
+                                    {isEditing ? (
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={handleNodeUpdate}
+                                                className="flex-1 py-3 bg-cyan-500 text-black rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-cyan-400 transition-all shadow-[0_0_20px_rgba(6,182,212,0.3)]"
+                                            >
+                                                <Save className="w-4 h-4" /> Save
+                                            </button>
+                                            <button
+                                                onClick={() => setIsEditing(false)}
+                                                className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-xs text-gray-400 hover:text-white"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => setIsEditing(true)}
+                                                className="flex-1 py-3 bg-white/5 border border-white/10 rounded-xl text-gray-400 text-xs font-medium hover:bg-white/10 hover:text-white transition-all flex items-center justify-center gap-2"
+                                            >
+                                                <Database className="w-4 h-4" /> Edit
+                                            </button>
+                                            <button
+                                                onClick={handleExpandLive}
+                                                className="flex-1 py-3 bg-cyan-500/10 border border-cyan-500/30 rounded-xl text-cyan-400 text-xs font-bold hover:bg-cyan-500/20 transition-all flex items-center justify-center gap-2"
+                                            >
+                                                <Maximize2 className="w-4 h-4" /> Expand
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>

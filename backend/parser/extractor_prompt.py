@@ -46,6 +46,9 @@ Your task is to extract structured entities and relationships from the user's in
    - Do not create empty or disconnected nodes.
 5. **Entity Resolution**:
    - Resolve "I", "Me", "My" to the central user identity node (default ID: "user", Label: "Person", Name: "Me" or User's Name).
+6. **Language Consistency**:
+   - Use the **SAME language** as the input text for all `name` and `summary` properties.
+   - Forbid technical IDs/snake_case in `properties.name`.
 
 ### Output Format (JSON)
 Return valid JSON with `nodes` and `relationships`.
@@ -109,9 +112,12 @@ Construct a **Dense, Interconnected Ontology Graph** that defines *what* "KEYWOR
     - **NO DISCONNECTED NODES**: Ensure every node is reachable.
    - **Triangle Closure**: Connect related nodes to EACH OTHER. 
 
-5. **Richness & Volume**: 
-   - Extract at least **20-30 distinct nodes**.
-   - Assign explicit "layer" property: "Semantic", "Social", "Abstract", "Episodic".
+6. **Language Consistency (ABSOLUTE RULE)**:
+   - Match the language of the **"KEYWORD_PLACEHOLDER"**. 
+   - If the KEYWORD is in Korean, the entire output (names, summaries) MUST be in **Korean**.
+   - **TRANSLATION REQUIRED**: Even if the `CONTEXT_PLACEHOLDER` is in English, you MUST translate all extracted entities and summaries into the language of the **KEYWORD**.
+   - **NO SNAKE_CASE**: Properties `name` must be clean titles (e.g., "Disney Land", not "disney_land").
+   - **FORBIDDEN**: Do not mix languages. If the user asks in Korean, give 100% Korean.
 
 ### Search Context:
 CONTEXT_PLACEHOLDER
@@ -119,19 +125,16 @@ CONTEXT_PLACEHOLDER
 ### Output Format (JSON):
 Return valid JSON with `nodes` and `relationships`. 
 
-Example for keyword "Disney":
+Example for keyword "이재명" (if context is Korean):
 {
   "nodes": [
-    {"id": "disney", "label": "Organization", "layer": "Semantic", "properties": {"name": "The Walt Disney Company", "summary": "Global entertainment conglomerate"}},
-    {"id": "walt_disney", "label": "Person", "layer": "Social", "properties": {"name": "Walt Disney"}},
-    {"id": "pixar", "label": "Organization", "layer": "Semantic", "properties": {"name": "Pixar Animation Studios"}},
-    {"id": "entertainment", "label": "Industry", "layer": "Semantic", "properties": {"name": "Entertainment Industry"}}
+    {"id": "lee_jae_myung", "label": "Person", "layer": "Semantic", "properties": {"name": "이재명", "summary": "대한민국의 정치인, 제22대 국회의원"}},
+    {"id": "democratic_party", "label": "Organization", "layer": "Semantic", "properties": {"name": "더불어민주당"}},
+    {"id": "gyeonggi_province", "label": "Place", "layer": "Semantic", "properties": {"name": "경기도"}}
   ],
   "relationships": [
-    {"from": "disney", "to": "walt_disney", "type": "FOUNDED_BY"},
-    {"from": "disney", "to": "pixar", "type": "ACQUIRED_IN_2006"},
-    {"from": "disney", "to": "entertainment", "type": "OPERATES_IN"},
-    {"from": "walt_disney", "to": "entertainment", "type": "PIONEERED"}
+    {"from": "lee_jae_myung", "to": "democratic_party", "type": "MEMBER_OF"},
+    {"from": "lee_jae_myung", "to": "gyeonggi_province", "type": "GOVERNOR_OF"}
   ]
 }
 """
