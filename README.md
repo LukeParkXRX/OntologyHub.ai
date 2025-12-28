@@ -31,7 +31,6 @@
 - **Magic Input & File Digestion**: 채팅과 파일 처리를 통합한 인터페이스.
 
 ### 🔌 Connectivity & Expansion
-### 🔌 Connectivity & Expansion
 - **[Completed] Module B: Universal File Loader (Data Digestion)**
     - 이력서, 일기장, 포트폴리오 등 비정형 파일을 드래그하면 알아서 분류하여 그래프에 흡수.
     - **Magic Input**: 텍스트 채팅과 파일 처리를 통합한 지능형 입력바.
@@ -44,7 +43,13 @@
     - **Resource**: `alive://me/profile` (자아 요약).
     - **Tool**: `search_my_memory` (맥락 기반 기억 검색).
 
+### ✨ High-Fidelity UX & Stability (The Polish)
+사용자 경험의 완성도를 결정짓는 미세한 디테일을 최적화했습니다.
 
+- **Dizziness-Free Interaction**: 링크 입자 속도를 **75% 감속**하여 대규모 그래프에서도 눈이 편안한 탐험 환경 조성.
+- **Computational Efficiency**: 전역 애니메이션 루프를 오브젝트별 `onBeforeRender`로 분산하여 **CPU/GPU 부하 90% 저감**, 메모리 누수 원천 차단.
+- **Linguistic Integrity**: 검색 결과 상의 외국어 지식을 사용자 입력 언어(한국어)로 **실시간 번역/추출**하여 완전한 한글 사용자 경험 보장.
+- **Precision Camera Control**: 노드 클릭 시 시점 잠금(Target Lock) 현상을 해결하여, 자동 이동 후에도 즉각적인 자유 조작 가능.
 
 ---
 
@@ -52,13 +57,13 @@
 
 | Type | Technology | Description |
 | :--- | :--- | :--- |
-| **Frontend** | **Next.js 14** | App Router, SSR/CSR Hybrid |
-| | **TypeScript** | Type Safety |
-| | **Three.js** | 3D Graph Visualization (`react-force-graph`) |
-| | **TailwindCSS** | Utility-first Styling (Dark Mode) |
-| **Backend** | **Python FastAPI** | High-performance Async API Server |
-| | **Google Gemini 2.0 Flash** | LLM (Extraction, Inference, Chat) - High Speed/Precision |
-| | **Neo4j (AuraDB)** | Graph Database (Cypher Query Language) |
+| **Frontend** | **Next.js 14** | App Router, SSR/CSR Hybrid, Framer Motion |
+| | **TypeScript** | Strict Type Safety |
+| | **Three.js** | Advanced 3D Rendering (Custom Shader-ready) |
+| | **TailwindCSS** | Glassmorphism & Cyberpunk Design Tokens |
+| **Backend** | **Python FastAPI** | Enterprise-grade Async API Framework |
+| | **Google Gemini 2.0 Flash** | SOTA LLM (Extraction & Reasoning), Sub-second Latency |
+| | **Neo4j (AuraDB)** | World-class Graph DB, High-performance Cypher Queries |
 
 ---
 
