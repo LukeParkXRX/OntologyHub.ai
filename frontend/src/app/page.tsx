@@ -1,932 +1,446 @@
 'use client';
 
-import { signIn, useSession, signOut } from "next-auth/react";
-
+import { signIn, useSession } from "next-auth/react";
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import dynamic from 'next/dynamic';
-import { Send, Terminal, Loader2, Database, Network, Trash2, HelpCircle, RefreshCw, Trash, Save, Upload } from 'lucide-react';
-import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { Network, Database, Trash2, HelpCircle, RefreshCw, Maximize2, X, Upload, Save } from 'lucide-react';
+import { AmbientBackground } from '@/components/ui/AmbientBackground';
+import { AppSidebar } from '@/components/layout/AppSidebar';
+import MagicInput from '@/components/MagicInput';
 
-const Graph3D = dynamic(() => import('../components/Graph3D'), { ssr: false });
-import MagicInput from '../components/MagicInput';
+// Dynamically import Graph3D to avoid SSR issues with Three.js
+const Graph3D = dynamic(() => import('@/components/Graph3D'), { ssr: false });
 
-// Helper to merge graph data
-const mergeGraphData = (existing: any, incoming: any) => {
-    const existingNodeIds = new Set(existing.nodes.map((n: any) => n.id));
-    const newNodes = incoming.nodes.filter((n: any) => !existingNodeIds.has(n.id));
-
-    // Filter unique links by source+target+type
-    const uniqueLinks = new Map();
-    [...existing.links, ...incoming.links].forEach(l => {
-        const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
-        const targetId = typeof l.target === 'object' ? l.target.id : l.target;
-        const key = `${sourceId}-${targetId}-${l.name}`;
-        if (!uniqueLinks.has(key)) uniqueLinks.set(key, l);
-    });
-
-    return {
-        nodes: [...existing.nodes, ...newNodes],
-        links: Array.from(uniqueLinks.values())
-    };
-};
+// --- Type Definitions ---
+type ViewMode = 'hero' | 'general' | 'personal';
 
 // --- Sub-Components ---
 
-const LoginModal = ({ onClose, onLogin }: { onClose: () => void, onLogin: () => void }) => {
-    return (
-        <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in">
-            <div className="bg-[#1E1F20] border border-[#3C4043] rounded-3xl p-8 w-full max-w-md relative shadow-2xl">
-                <button onClick={onClose} className="absolute top-4 right-4 text-[#8E918F] hover:text-white">✕</button>
+const HeroView = ({ onSearch }: { onSearch: (term: string) => void }) => {
+    const [input, setInput] = useState('');
+    const [idleGraphData, setIdleGraphData] = useState<{ nodes: any[], links: any[] }>({ nodes: [], links: [] });
+    const [isTyping, setIsTyping] = useState(false);
 
-                <div className="text-center mb-8">
-                    <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 mb-2">Identify Yourself</h2>
-                    <p className="text-sm text-[#8E918F]">Connect your digital footprint to begin.</p>
-                </div>
-
-                <div className="space-y-4">
-                    <button
-                        onClick={() => signIn("google")}
-                        className="w-full bg-[#E3E3E3] hover:bg-white text-black font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-3"
-                    >
-                        <span className="text-xl">G</span>
-                        <span>Continue with Google</span>
-                    </button>
-
-                    <button
-                        onClick={() => signIn("linkedin")}
-                        className="w-full bg-[#0A66C2] hover:bg-[#004182] text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-3"
-                    >
-                        <span className="text-xl">in</span>
-                        <span>Continue with LinkedIn</span>
-                    </button>
-
-                    <div className="relative py-4">
-                        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[#3C4043]"></div></div>
-                        <div className="relative flex justify-center text-xs uppercase"><span className="bg-[#1E1F20] px-2 text-[#8E918F]">Or</span></div>
-                    </div>
-
-                    <button
-                        onClick={() => {
-                            if (confirm("Starting as Guest will RESET the current graph. Continue?")) {
-                                onLogin();
-                            }
-                        }} // Guest access with warning
-                        className="w-full border border-[#3C4043] hover:bg-[#3C4043] text-[#E3E3E3] font-bold py-3 rounded-xl transition-colors text-sm"
-                    >
-                        Continue as Guest (Dev & Reset)
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const EntryScreen = ({ onSelectMode }: { onSelectMode: (mode: 'identity' | 'concept', keyword?: string) => void }) => {
-    const [showLogin, setShowLogin] = useState(false);
-    const { status } = useSession();
-
+    // Generate "Constellation" Background Data
     useEffect(() => {
-        if (status === 'authenticated') {
-            onSelectMode('identity');
+        const nodes = [];
+        const links = [];
+        const N = 40; // Number of stars
+        for (let i = 0; i < N; i++) {
+            nodes.push({ id: `star-${i}`, val: Math.random() * 1.5, label: 'Star', group: 9 });
         }
-    }, [status, onSelectMode]);
+        for (let i = 0; i < N; i++) {
+            if (Math.random() > 0.7) {
+                const target = Math.floor(Math.random() * N);
+                if (target !== i) links.push({ source: `star-${i}`, target: `star-${target}` });
+            }
+        }
+        setIdleGraphData({ nodes, links });
+    }, []);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (input.trim()) onSearch(input);
+    };
 
     return (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#131314] overflow-hidden">
-            {/* Background Effects */}
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#1E1F20] via-[#131314] to-black opacity-80" />
+        <div className="relative w-full h-full flex flex-col items-center justify-center overflow-hidden">
+            {/* Background: Latent Neural Universe */}
+            <div className="absolute inset-0 z-0 opacity-40 pointer-events-none grayscale transition-all duration-1000" style={{ filter: isTyping ? 'grayscale(0%) contrast(1.2)' : 'grayscale(80%)' }}>
+                <Graph3D data={idleGraphData} arrangeTrigger={0} /> {/* Static Constellation */}
+            </div>
 
-            {/* Login Modal */}
-            {showLogin && (
-                <LoginModal
-                    onClose={() => setShowLogin(false)}
-                    onLogin={() => onSelectMode('identity-guest')}
-                />
-            )}
+            {/* Visual overlay for depth */}
+            <div className="absolute inset-0 z-0 bg-gradient-to-b from-transparent via-[#020617]/80 to-[#020617] pointer-events-none" />
 
-            {/* Main Content */}
-            <div className="relative z-10 text-center space-y-8 animate-fade-in-up">
-                {/* Visual Soul */}
-                <div className="relative w-48 h-48 mx-auto mb-8">
-                    <div className="absolute inset-0 rounded-full bg-blue-500/20 blur-3xl animate-pulse" />
-                    <div className="absolute inset-4 rounded-full border-2 border-dashed border-blue-500/30 animate-[spin_10s_linear_infinite]" />
-                    <div className="absolute inset-8 rounded-full border border-blue-400/50 animate-[spin_5s_linear_infinite_reverse]" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 blur-md opacity-80 animate-pulse" />
-                    </div>
-                </div>
-
-                <div className="space-y-4">
-                    <h1 className="text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-100 via-blue-300 to-purple-200 tracking-tighter">
-                        PROJECT ALIVE
+            <div className="relative z-10 flex flex-col items-center w-full max-w-4xl px-4 animate-in fade-in zoom-in duration-1000">
+                <div className="text-center mb-16 space-y-6">
+                    <h1 className="text-7xl md:text-8xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-500 text-glow select-none">
+                        OntologyHub.ai
                     </h1>
-                    <p className="text-xl text-[#8E918F] font-light tracking-wide max-w-lg mx-auto">
-                        Awaken Your Digital Soul.<br />
-                        Begin the journey to reconstruct yourself.
+                    <p className="text-xl md:text-2xl text-blue-200/60 font-light tracking-[0.2em] uppercase">
+                        Breathing Life Into Data
                     </p>
                 </div>
 
-                <div className="pt-8">
-                    <button
-                        onClick={() => setShowLogin(true)}
-                        className="group relative px-8 py-4 bg-transparent overflow-hidden rounded-full transition-all hover:scale-105"
-                    >
-                        <div className="absolute inset-0 border border-blue-500/30 rounded-full group-hover:border-blue-400/80 transition-colors" />
-                        <div className="absolute inset-0 bg-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity blur-md" />
-                        <span className="relative text-blue-300 font-medium tracking-widest uppercase text-sm group-hover:text-blue-100 transition-colors flex items-center gap-2">
-                            Initiate Sequence <span className="group-hover:translate-x-1 transition-transform">→</span>
-                        </span>
-                    </button>
+                {/* The Core: Search Interface */}
+                <form onSubmit={handleSubmit} className="w-full max-w-2xl relative group">
+                    {/* Living Ambient Glow (Pulse) */}
+                    <div className={`absolute -inset-1 rounded-full blur-2xl transition-all duration-1000 ${isTyping ? 'bg-cyan-500/40 opacity-100 scale-105' : 'bg-amber-500/20 opacity-60 animate-pulse-slow'}`} />
 
-                    {/* Hidden Concept Access (Optional) 
-                    <button 
-                        onClick={() => onSelectMode('concept', 'Metaverse')}
-                        className="block mt-4 text-[10px] text-[#3C4043] hover:text-[#5E5E5E] mx-auto uppercase tracking-widest"
-                    >
-                        Access Archives
-                    </button>
-                    */}
+                    <div className="relative flex items-center">
+                        <input
+                            type="text"
+                            value={input}
+                            onChange={(e) => {
+                                setInput(e.target.value);
+                                setIsTyping(!!e.target.value);
+                            }}
+                            onFocus={() => setIsTyping(true)}
+                            onBlur={() => setIsTyping(!!input)}
+                            placeholder="Enter a concept to ignite..."
+                            className={`w-full bg-[#030712]/80 backdrop-blur-2xl border-2 rounded-full px-10 py-8 text-2xl text-white placeholder:text-gray-600 focus:outline-none transition-all duration-500 shadow-2xl
+                                ${isTyping
+                                    ? 'border-cyan-500/50 shadow-[0_0_50px_-10px_rgba(6,182,212,0.5)]'
+                                    : 'border-amber-500/30 shadow-[0_0_30px_-5px_rgba(245,158,11,0.2)] hover:border-amber-500/50'
+                                }
+                            `}
+                        />
+
+                        <button
+                            type="submit"
+                            className={`absolute right-4 p-4 rounded-full transition-all duration-300 ${input ? 'bg-cyan-500 text-black hover:scale-110 shadow-[0_0_20px_rgba(6,182,212,0.6)]' : 'bg-white/5 text-gray-500'}`}
+                        >
+                            <Network className={`w-6 h-6 ${isTyping ? 'animate-spin-slow' : ''}`} />
+                        </button>
+                    </div>
+                </form>
+
+                {/* Footer / Status */}
+                <div className="mt-12 flex gap-6 text-xs text-slate-500 font-mono tracking-widest uppercase">
+                    <span className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${isTyping ? 'bg-cyan-400 animate-ping' : 'bg-amber-500/50'}`} />
+                        System Ready
+                    </span>
+                    <span className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-slate-700" />
+                        Neural Link Stable
+                    </span>
                 </div>
-            </div>
-
-            <div className="absolute bottom-10 text-[10px] text-[#3C4043] font-mono tracking-[0.2em] uppercase">
-                OntologyHub.AI // System Version 2.0.5
             </div>
         </div>
     );
 };
-
-// Cyberpunk-style Scanning Overlay
-const ScanningOverlay = () => (
-    <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-none">
-        <div className="relative">
-            <div className="w-24 h-24 rounded-full border-4 border-[#4285F4]/30 animate-[spin_3s_linear_infinite]" />
-            <div className="absolute inset-0 w-24 h-24 rounded-full border-t-4 border-[#4285F4] animate-[spin_1s_linear_infinite]" />
-            <div className="absolute inset-4 w-16 h-16 rounded-full bg-[#4285F4]/20 animate-pulse" />
-        </div>
-        <div className="mt-8 text-center space-y-2">
-            <h3 className="text-xl font-bold text-[#4285F4] tracking-[0.2em] animate-pulse">SYSTEM SCANNING</h3>
-            <p className="text-xs text-[#8AB4F8] font-mono">
-                ANALYZING DATA STRUCTURE...<br />
-                BUILDING ONTOLOGY NODES...
-            </p>
-        </div>
-    </div>
-);
-
-// --- Help & Guide Component (Vibe Coding) ---
-const HelpGuide = ({ onClose }: { onClose: () => void }) => (
-    <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-md p-10 animate-fade-in" onClick={onClose}>
-        <div className="bg-[#1E1F20] border border-[#3C4043] rounded-2xl p-8 max-w-2xl w-full shadow-2xl relative" onClick={e => e.stopPropagation()}>
-            <button onClick={onClose} className="absolute top-4 right-4 text-[#8E918F] hover:text-white">✕</button>
-            <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 mb-6">
-                OntologyHub Interface Guide
-            </h2>
-
-            <div className="grid grid-cols-2 gap-6 text-sm">
-                <div className="space-y-4">
-                    <h3 className="font-bold text-[#E3E3E3] border-b border-[#3C4043] pb-2">🕹️ Controls</h3>
-                    <ul className="space-y-2 text-[#C4C7C5]">
-                        <li><strong className="text-blue-400">Left Click</strong>: Rotate Camera</li>
-                        <li><strong className="text-blue-400">Right Click</strong>: Pan (Move) Camera</li>
-                        <li><strong className="text-blue-400">Scroll</strong>: Zoom In/Out</li>
-                        <li><strong className="text-blue-400">Click Node</strong>: Focus & View Details</li>
-                    </ul>
-                </div>
-
-                <div className="space-y-4">
-                    <h3 className="font-bold text-[#E3E3E3] border-b border-[#3C4043] pb-2">🎨 Visualization</h3>
-                    <ul className="space-y-2 text-[#C4C7C5]">
-                        <li><strong className="text-purple-400">Node Size</strong>: Importance (Centrality)</li>
-                        <li><strong className="text-purple-400">Node Color</strong>: Topic Cluster Group</li>
-                        <li><strong className="text-purple-400">Rings</strong>: Highlight Root Concepts</li>
-                    </ul>
-                </div>
-
-                <div className="space-y-4">
-                    <h3 className="font-bold text-[#E3E3E3] border-b border-[#3C4043] pb-2">🎛️ Filters (Left Panel)</h3>
-                    <ul className="space-y-2 text-[#C4C7C5]">
-                        <li><strong className="text-green-400">Categories</strong>: Toggle specific types (Person, Job, etc.)</li>
-                        <li><strong className="text-green-400">Peeling Layers</strong>: Filter nodes by importance. Drag slider right to focus on core concepts.</li>
-                    </ul>
-                </div>
-
-                <div className="space-y-4">
-                    <h3 className="font-bold text-[#E3E3E3] border-b border-[#3C4043] pb-2">⚡ Actions</h3>
-                    <ul className="space-y-2 text-[#C4C7C5]">
-                        <li><strong className="text-yellow-400">Arrange</strong>: Re-organize graph layout if intertwined.</li>
-                        <li><strong className="text-yellow-400">Clear</strong>: Reset the entire graph database.</li>
-                    </ul>
-                </div>
-            </div>
-
-            <div className="mt-8 text-center text-xs text-[#8E918F]">
-                Click anywhere outside to close
-            </div>
-        </div>
-    </div>
-);
 
 // --- Main Page Component ---
 
 export default function Home() {
     // --- State ---
-    const [entryMode, setEntryMode] = useState<'intro' | 'identity' | 'concept'>('intro');
-    const [messages, setMessages] = useState<{ role: 'user' | 'agent', text: string, context?: string }[]>([]);
-    // input state removed, handled by MagicInput
-    const [isLoading, setIsLoading] = useState(false);
+    const [viewMode, setViewMode] = useState<ViewMode>('hero');
     const [graphData, setGraphData] = useState<{ nodes: any[], links: any[] }>({ nodes: [], links: [] });
+    const [messages, setMessages] = useState<{ role: 'user' | 'agent', text: string, context?: string }[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
 
-    // Keep 'mode' for internal chat vs ingest switch within Identity mode
-    const [interactionMode, setInteractionMode] = useState<'chat' | 'ingest'>('chat');
+    // Sidebar usually open, can be toggled if needed
+    const [showSidebar, setShowSidebar] = useState(true);
     const [selectedNode, setSelectedNode] = useState<any>(null);
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [showHelp, setShowHelp] = useState(false); // Help Modal State
-
-    // Resizable Sidebar State
-    const [sidebarWidth, setSidebarWidth] = useState(450); // Initial 450px
-    const sidebarWidthRef = useRef(450); // Sync for event handlers
-    const isResizingRef = useRef(false); // Ref for immediate access in events
-    const [isResizing, setIsResizing] = useState(false); // State for UI updates (cursor, etc)
-
-    // Filter State
-    const [yearRange, setYearRange] = useState<[number, number]>([2000, 2030]);
-    const [selectedYear, setSelectedYear] = useState<number[]>([2030]); // Current Slider Value
-    const [minImportance, setMinImportance] = useState<number[]>([0]); // Peeling Layers (0 ~ 1)
-    const [categoryFilters, setCategoryFilters] = useState<Record<string, boolean>>({
-        'Person': true,
-        'Job': true,      // "경력"
-        'Emotion': true,
-        'Interest': true, // "취미"
-        'Event': true     // Timeline targets
-    });
     const [arrangeTrigger, setArrangeTrigger] = useState(0);
     const [highlightNodes, setHighlightNodes] = useState<Set<string>>(new Set());
 
-    // Use Proxy Path
+    const { data: session } = useSession();
     const API_URL = '/api';
 
-    // [Module A] Auth-to-Graph Ingestion
-    const { data: session } = useSession();
-    const [authIngested, setAuthIngested] = useState(false);
+    // --- Graph Logic Helper ---
+    const mergeGraphData = (existing: any, incoming: any) => {
+        const existingNodeIds = new Set(existing.nodes.map((n: any) => n.id));
+        const newNodes = incoming.nodes.filter((n: any) => !existingNodeIds.has(n.id));
 
-    useEffect(() => {
-        if (session?.user && !authIngested && entryMode === 'identity') {
-            const userData = session.user;
-            console.log("Ingesting Auth Profile:", userData);
+        const uniqueLinks = new Map();
+        [...existing.links, ...incoming.links].forEach(l => {
+            const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
+            const targetId = typeof l.target === 'object' ? l.target.id : l.target;
+            const key = `${sourceId}-${targetId}-${l.name}`;
+            if (!uniqueLinks.has(key)) uniqueLinks.set(key, l);
+        });
 
-            setMessages(prev => [...prev, { role: 'agent', text: `Authenticating as ${userData.name}... Building identity nodes.` }]);
-
-            axios.post(API_URL + '/auth/ingest', {
-                provider: 'oauth', // Generic for now
-                user_data: userData
-            }).then(() => {
-                setAuthIngested(true);
-                setIsLoggedIn(true);
-                setMessages(prev => [...prev, { role: 'agent', text: `Identity Verified. Welcome, ${userData.name}.` }]);
-                fetchGraph();
-            }).catch(err => {
-                console.error("Auth Ingest Failed", err);
-                setMessages(prev => [...prev, { role: 'agent', text: "Warning: Failed to sync profile data." }]);
-            });
-        }
-    }, [session, authIngested, entryMode]);
-
-    // --- Effects & Logic ---
-
-    // 1. Analyze Date Range on Data Load
-    useEffect(() => {
-        if (graphData.nodes.length > 0) {
-            const years = graphData.nodes
-                .filter((n: any) => n.label === 'Event')
-                .map((n: any) => {
-                    const d = n.timestamp || n.date || n.properties?.timestamp || n.properties?.date;
-                    return d ? new Date(d).getFullYear() : NaN;
-                })
-                .filter(y => !isNaN(y));
-
-            if (years.length > 0) {
-                const min = Math.min(...years);
-                const max = Math.max(...years);
-                setYearRange([min, max]);
-                setSelectedYear([max]); // Set to max initially
-            }
-        }
-    }, [graphData]);
-
-    // 2. Compute Filtered Data
-    const filteredData = {
-        nodes: graphData.nodes.filter((node: any) => {
-            // Category Filter
-            if (categoryFilters[node.label] === false) return false;
-
-            // Timeline Filter (Only for Events)
-            // [ALIVE] Support both 'date' and 'timestamp' properties for Memory Visualization
-            const eventDate = node.timestamp || node.date || node.properties?.timestamp || node.properties?.date;
-            if (node.label === 'Event' && eventDate) {
-                const nodeYear = new Date(eventDate).getFullYear();
-                if (!isNaN(nodeYear) && nodeYear > selectedYear[0]) {
-                    return false; // Hide future events
-                }
-            }
-
-            // Importance Filter (Peeling Layers)
-            // Assuming centrality is normalized 0-1 or raw score. 
-            // If raw, we might need to normalize in backend or here. 
-            // In backend we stored raw 'centrality'. Let's assume it is somewhat small float.
-            // If minImportance > 0, we filter.
-            if (node.centrality !== undefined && node.centrality < minImportance[0]) {
-                return false;
-            }
-
-            return true;
-        }),
-        links: graphData.links.filter((link: any) => {
-            // Filter links? Graph lib handles missing nodes mostly, but cleaning up is safer
-            return true;
-        })
-    };
-
-    // Explicit Link Filtering based on Node IDs
-    const activeNodeIds = new Set(filteredData.nodes.map((n: any) => n.id));
-    filteredData.links = filteredData.links.filter((link: any) => {
-        const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
-        const targetId = typeof link.target === 'object' ? link.target.id : link.target;
-        return activeNodeIds.has(sourceId) && activeNodeIds.has(targetId);
-    });
-
-    // Resizing Logic Refactored:
-    // Attach listeners dynamically on MouseDown to ensure they capture events globally
-    // independently of where the mouse goes.
-
-    const resize = (mouseMoveEvent: MouseEvent) => {
-        const newWidth = mouseMoveEvent.clientX;
-        const minWidth = 300;
-        const maxWidth = 600; // Increased max width slightly
-
-        if (newWidth > minWidth && newWidth < maxWidth) {
-            setSidebarWidth(newWidth);
-            sidebarWidthRef.current = newWidth;
-        }
-    };
-
-    const stopResizing = () => {
-        setIsResizing(false);
-        document.removeEventListener("mousemove", resize);
-        document.removeEventListener("mouseup", stopResizing);
-        document.body.style.cursor = 'default';
-        document.body.style.userSelect = 'auto'; // Restore text selection
-    };
-
-    const startResizing = (mouseDownEvent: React.MouseEvent) => {
-        mouseDownEvent.preventDefault();
-        setIsResizing(true);
-        document.addEventListener("mousemove", resize);
-        document.addEventListener("mouseup", stopResizing);
-        document.body.style.cursor = 'col-resize'; // Force cursor
-        document.body.style.userSelect = 'none'; // Disable text selection globally
-    };
-
-    // Cleanup on unmount
-    useEffect(() => {
-        return () => {
-            document.removeEventListener("mousemove", resize);
-            document.removeEventListener("mouseup", stopResizing);
+        return {
+            nodes: [...existing.nodes, ...newNodes],
+            links: Array.from(uniqueLinks.values())
         };
-    }, []);
+    };
 
-    // [ALIVE] Reset Universe Logic
-    const handleReset = async () => {
-        if (!confirm("Are you sure you want to RESET your Digital Universe? This cannot be undone.")) return;
+    // --- Handlers ---
+
+    const handleSearch = async (term: string) => {
+        setViewMode('general');
+        setIsLoading(true);
+        setMessages([{ role: 'agent', text: `Exploring concept: "${term}"...` }]);
+
+        // [ALIVE FIX] Ensure Clean Slate
+        setGraphData({ nodes: [], links: [] });
 
         try {
-            setIsLoading(true);
-            await axios.delete(API_URL + '/graph');
+            const res = await axios.post(`${API_URL}/ingest/search`, { text: term });
+            if (res.data.status === 'success') {
+                // The backend now filters for LCC and normalizes IDs.
+                // We just need to load it.
+                setGraphData({ nodes: res.data.nodes, links: res.data.links });
+                setArrangeTrigger(prev => prev + 1);
+                setMessages([{ role: 'agent', text: `Graph generated for "${term}".` }]);
+            }
+        } catch (err) {
+            console.error(err);
+            setMessages([{ role: 'agent', text: "Failed to generate graph." }]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleModeChange = (mode: 'general' | 'personal') => {
+        if (mode === 'personal') {
+            setViewMode('personal');
+            // If logged in, trigger ingest
+            if (session?.user) {
+                handleAuthIngest();
+            } else {
+                setMessages([{ role: 'agent', text: "Please connect a social account from the sidebar to begin." }]);
+                setGraphData({ nodes: [], links: [] });
+            }
+        } else {
+            setViewMode('hero'); // Reset to Hero for generic Concept search start
+        }
+    };
+
+    const handleAuthIngest = async () => {
+        if (!session?.user) return;
+        setIsLoading(true);
+        setMessages([{ role: 'agent', text: `Authenticating ${session.user.name}...` }]);
+
+        try {
+            await axios.post(`${API_URL}/auth/ingest`, { provider: 'oauth', user_data: session.user });
+            const res = await axios.get(`${API_URL}/graph`);
+            setGraphData(res.data);
+            setArrangeTrigger(prev => prev + 1);
+            setMessages(prev => [...prev, { role: 'agent', text: "Identity Graph Loaded." }]);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleReset = async () => {
+        if (!confirm("Are you sure you want to RESET the universe?")) return;
+        try {
+            await axios.delete(`${API_URL}/graph`);
             setGraphData({ nodes: [], links: [] });
+            setViewMode('hero');
             setMessages([]);
-            alert("Universe Reset Successful. Starting fresh.");
-        } catch (error) {
-            console.error(error);
-            alert("Failed to reset.");
+        } catch (e) { console.error(e); }
+    };
+
+    const refreshGraph = async () => {
+        try {
+            const res = await axios.get(`${API_URL}/graph`);
+            setGraphData(res.data);
+            setArrangeTrigger(prev => prev + 1);
+        } catch (e) { console.error(e); }
+    };
+
+    const handleSend = async (text: string) => {
+        if (!text.trim()) return;
+
+        // Optimistic UI
+        setMessages(prev => [...prev, { role: 'user', text }]);
+        setIsLoading(true);
+
+        try {
+            if (viewMode === 'general') {
+                // Concept Expansion
+                const res = await axios.post(`${API_URL}/ingest/search`, { text });
+                if (res.data.status === 'success') {
+                    setGraphData(prev => mergeGraphData(prev, res.data));
+                    setArrangeTrigger(prev => prev + 1);
+                    setMessages(prev => [...prev, { role: 'agent', text: `Expanded graph with "${text}".` }]);
+                }
+            } else {
+                // Chat / Interaction
+                const res = await axios.post(`${API_URL}/chat`, { message: text });
+                setMessages(prev => [...prev, { role: 'agent', text: res.data.answer }]);
+                if (res.data.nodes_created > 0) refreshGraph();
+            }
+        } catch (e) {
+            console.error(e);
+            setMessages(prev => [...prev, { role: 'agent', text: "Error processing request." }]);
         } finally {
             setIsLoading(false);
         }
     };
 
     const handleFileUpload = async (file: File) => {
-        if (!file) return;
-
         const formData = new FormData();
         formData.append('file', file);
-
         setIsLoading(true);
-        setMessages(prev => [...prev, { role: 'agent', text: `파일 업로드 중: ${file.name}...\n분석 및 온톨로지 변환을 시작합니다.` }]);
+        setMessages(prev => [...prev, { role: 'agent', text: `Absorbing ${file.name}...` }]);
 
         try {
-            const res = await axios.post(`${API_URL}/ingest/file`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-            setMessages(prev => [...prev, {
-                role: 'agent',
-                text: `✅ 분석 완료!\n추가된 노드: ${res.data.nodes_added}\n추가된 연결: ${res.data.edges_added}`
-            }]);
-            fetchGraph();
-        } catch (err) {
-            console.error(err);
-            setMessages(prev => [...prev, { role: 'agent', text: '파일 처리 중 오류가 발생했습니다.' }]);
+            const res = await axios.post(`${API_URL}/ingest/file`, formData);
+            setMessages(prev => [...prev, { role: 'agent', text: `Digested ${file.name}. (+${res.data.nodes_added} nodes)` }]);
+            refreshGraph();
+        } catch (e) {
+            console.error(e);
+            setMessages(prev => [...prev, { role: 'agent', text: "Ingestion failed." }]);
         } finally {
             setIsLoading(false);
         }
     };
 
-    const handleClear = async () => {
-        if (!confirm("Are you sure you want to clear the entire knowledge graph?")) return;
-        try {
-            await axios.delete(`${API_URL}/graph`);
-            setGraphData({ nodes: [], links: [] });
-            setMessages(prev => [...prev, { role: 'agent', text: '♻️ Knowledge Graph has been reset.' }]);
-        } catch (e) {
-            console.error(e);
-        }
-    };
-
-    // [New] Save & Load Graph
-    const handleSaveGraph = () => {
+    const handleSave = () => {
         const dataStr = JSON.stringify(graphData, null, 2);
         const blob = new Blob([dataStr], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `ontology_backup_${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = `ontology_backup.json`;
         a.click();
-        URL.revokeObjectURL(url);
-        setMessages(prev => [...prev, { role: 'agent', text: '💾 Graph saved to local file.' }]);
     };
 
-    const handleLoadGraph = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
+    const handleLoad = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
         if (!file) return;
-
         const reader = new FileReader();
-        reader.onload = async (e) => {
+        reader.onload = async (ev) => {
             try {
-                const json = JSON.parse(e.target?.result as string);
-                if (json.nodes && json.links) {
-                    setIsLoading(true);
-                    // 1. Reset Backend DB
-                    await axios.delete(`${API_URL}/graph`);
-                    // 2. Ingest Loaded Nodes (Manual Restoration)
-                    // We need a backend endpoint for Bulk Restore, but for now let's rely on frontend visualization 
-                    // OR send it to 'ingest' if we parse it back to text? No, that loses structure.
-                    // Ideally we send this JSON to a restore endpoint. 
-                    // Let's implement a quick restore via /ingest loop or just client-side render for now?
-                    // User wants "Open" -> "Open existing graph".
-                    // Best way: Send JSON to backend to recreate nodes.
-                    // For now, let's just update the view and assume backend sync is separate or needed.
-                    // WAIT: User expects persistence. We must save to DB.
-                    // Since we don't have a bulk-json-ingest endpoint, let's just visualize it for this session 
-                    // AND try to push it if possible. But given constraints, View First.
-
-                    setGraphData(json);
-                    setMessages(prev => [...prev, { role: 'agent', text: `📂 Graph loaded from ${file.name} (Visual Only).` }]);
-                } else {
-                    alert("Invalid Graph JSON");
-                }
-            } catch (err) {
-                console.error(err);
-                alert("Failed to parse JSON");
-            } finally {
-                setIsLoading(false);
-            }
+                const json = JSON.parse(ev.target?.result as string);
+                setGraphData(json);
+                setMessages(prev => [...prev, { role: 'agent', text: "Graph visualized from file." }]);
+            } catch (err) { console.error(err); }
         };
         reader.readAsText(file);
     };
 
-    const fetchGraph = async () => {
-        try {
-            // Only fetch full graph if explicitly needed or in Identity mode
-            if (entryMode === 'concept') return;
-
-            console.log("Fetching graph data...");
-            const res = await axios.get(`${API_URL}/graph`);
-            console.log("Graph data received:", res.data);
-            setGraphData(res.data);
-        } catch (err) {
-            console.error("Failed to fetch graph:", err);
-        }
-    };
-
-    const handleModeSelect = async (mode: 'identity' | 'concept', keyword?: string) => {
-        setEntryMode(mode);
-
-        if (mode === 'identity') {
-            setMessages([{ role: 'agent', text: '환영합니다. 당신의 디지털 자아를 구축할 준비가 되었습니다.\n파일을 업로드하거나 대화를 시작하세요.' }]);
-            // Explicitly fetch graph for Identity
-            try {
-                const res = await axios.get(`${API_URL}/graph`);
-                const identityNodes = res.data.nodes.filter((n: any) => n.source !== 'concept');
-                setGraphData(res.data);
-            } catch (e) { };
-        } else if (mode === 'identity-guest') {
-            // Guest Entry: Auto Reset
-            handleReset();
-            setMessages([{ role: 'agent', text: 'Guest Mode Initiated. Graph Reset Complete.\nStart fresh.' }]);
-        } else if (mode === 'concept' && keyword) {
-            setMessages([{ role: 'agent', text: `'${keyword}'에 대한 지식 그래프를 생성 중입니다...\nWeb Knowledge를 탐색하고 있습니다.` }]);
-            setGraphData({ nodes: [], links: [] }); // Reset view for new concept
-            setIsLoading(true);
-            try {
-                // Initial Concept Ingestion
-                console.log(`Ingesting concept: ${keyword}`);
-                const res = await axios.post(`${API_URL}/ingest/search`, { text: keyword });
-
-                // Directly use returned subgraph
-                if (res.data.status === 'success') {
-                    setGraphData({ nodes: res.data.nodes, links: res.data.links });
-                    setMessages(prev => [...prev, { role: 'agent', text: `✅ '${keyword}'에 대한 온톨로지가 생성되었습니다.` }]);
-                }
-            } catch (e) {
-                console.error(e);
-                setMessages(prev => [...prev, { role: 'agent', text: '오류가 발생했습니다.' }]);
-            } finally {
-                setIsLoading(false);
-            }
-        }
-    };
-
-    const handleSend = async (message: string) => {
-        if (!message.trim()) return;
-        const userInput = message;
-        setMessages(prev => [...prev, { role: 'user', text: userInput }]);
-
-        setIsLoading(true);
-
-        try {
-            if (interactionMode === 'chat') {
-                const res = await axios.post(`${API_URL}/chat`, { message: userInput });
-                setMessages(prev => [...prev, { role: 'agent', text: res.data.answer, context: res.data.context }]);
-
-                // [Autofetch] If new nodes were created during chat, refresh the graph
-                if (res.data.nodes_created > 0) {
-                    console.log(`Auto-refreshing graph: ${res.data.nodes_created} nodes added.`);
-                    fetchGraph();
-                }
-            } else {
-                // Ingest Logic based on Entry Mode
-                const endpoint = entryMode === 'concept' ? '/ingest/search' : '/ingest';
-                console.log(`Ingesting input to ${endpoint}: ${userInput}`);
-                const res = await axios.post(`${API_URL}${endpoint}`, { text: userInput });
-                console.log("Ingest result:", res.data);
-
-                if (entryMode === 'concept') {
-                    if (res.data.status === 'success') {
-                        setGraphData(prev => mergeGraphData(prev, { nodes: res.data.nodes, links: res.data.links }));
-                        setMessages(prev => [...prev, { role: 'agent', text: `지식이 확장되었습니다. (+${res.data.nodes.length} Nodes)` }]);
-                    }
-                } else {
-                    setMessages(prev => [...prev, { role: 'agent', text: `지식이 확장되었습니다. (${res.data.nodes_added} Nodes added)` }]);
-                    fetchGraph();
-                }
-            }
-        } catch (err) {
-            console.error(err);
-            setMessages(prev => [...prev, { role: 'agent', text: 'Error.' }]);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleExpand = async () => {
+    const handleExpandLive = async () => {
         if (!selectedNode) return;
         setIsLoading(true);
-        // Optimistic UI update
         setMessages(prev => [...prev, { role: 'user', text: `Expand knowledge on: ${selectedNode.name}` }]);
 
         try {
             const res = await axios.post('/api/ingest/search', { text: selectedNode.name });
             if (res.data.status === 'success') {
-                // Merge subgraph
                 setGraphData(prev => mergeGraphData(prev, { nodes: res.data.nodes, links: res.data.links }));
-                setMessages(prev => [...prev, { role: 'agent', text: `Knowledge expanded. Added ${res.data.nodes.length} nodes based on "${selectedNode.name}".` }]);
+                setArrangeTrigger(prev => prev + 1);
+                setMessages(prev => [...prev, { role: 'agent', text: `Knowledge expanded for "${selectedNode.name}".` }]);
             } else {
-                setMessages(prev => [...prev, { role: 'agent', text: `Could not find new information for "${selectedNode.name}".` }]);
+                setMessages(prev => [...prev, { role: 'agent', text: `No new info found for "${selectedNode.name}".` }]);
             }
         } catch (e) {
             console.error(e);
-            setMessages(prev => [...prev, { role: 'agent', text: "Expansion failed. Please try again." }]);
+            setMessages(prev => [...prev, { role: 'agent', text: "Expansion failed." }]);
         } finally {
             setIsLoading(false);
         }
     };
 
-    const handleLiveUpdate = async () => {
-        setIsLoading(true);
-        setMessages(prev => [...prev, { role: 'agent', text: "📡 Searching for real-time updates..." }]);
-
-        try {
-            const res = await axios.post('/api/graph/update');
-            if (res.data.status === 'success') {
-                const diff = res.data.diff;
-                const newIds = diff.nodes.map((n: any) => n.id);
-
-                // Merge & Highlight
-                setGraphData(prev => mergeGraphData(prev, diff));
-                setHighlightNodes(new Set(newIds));
-
-                setMessages(prev => [...prev, {
-                    role: 'agent',
-                    text: `✨ Graph evolved! Found insights on "${res.data.query}".\n(+${diff.nodes.length} Nodes)`
-                }]);
-
-                // Clear highlight after 5 seconds
-                setTimeout(() => setHighlightNodes(new Set()), 5000);
-            } else {
-                setMessages(prev => [...prev, { role: 'agent', text: "No new relevant information found at the moment." }]);
-            }
-        } catch (e) {
-            console.error(e);
-            setMessages(prev => [...prev, { role: 'agent', text: "Update failed." }]);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    // Debug Log
-    console.log("Rendering Home. Filtered Data Nodes:", filteredData.nodes.length, "Links:", filteredData.links.length);
+    // --- Render ---
 
     return (
-        <main className="flex h-screen bg-[#131314] text-[#E3E3E3] overflow-hidden font-sans relative selection:bg-blue-500/30">
-            {entryMode === 'intro' && (
-                <EntryScreen onSelectMode={handleModeSelect} />
-            )}
+        <main className="relative w-full h-screen overflow-hidden text-gray-100 font-sans selection:bg-purple-500/30">
+            <AmbientBackground />
 
-            {/* Help Overlay */}
-            {showHelp && <HelpGuide onClose={() => setShowHelp(false)} />}
+            <AppSidebar
+                currentMode={viewMode === 'personal' ? 'personal' : 'general'}
+                onModeChange={handleModeChange}
+                onReset={handleReset}
+                isGraphActive={viewMode !== 'hero'}
+            />
 
-            {/* Resizable Sidebar */}
-            <div
-                style={{ width: sidebarWidth }}
-                className="relative bg-[#1E1F20] border-r border-[#3C4043] flex flex-col z-30 transition-[width] duration-75 ease-out shadow-2xl"
-            >
-                {/* Resize Handle */}
-                <div
-                    onMouseDown={startResizing}
-                    className={`absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-[#4285F4] transition-colors z-50 ${isResizing ? 'bg-[#4285F4]' : 'bg-transparent'}`}
-                />
+            <div className={`relative h-full transition-all duration-700 ease-in-out ${showSidebar ? 'ml-64' : 'ml-0'}`}>
 
-                {/* Header */}
-                <div className="p-6 border-b border-[#3C4043] flex justify-between items-center bg-[#1E1F20]">
-                    <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
-                        <span className="w-3 h-3 rounded-full bg-gradient-to-r from-blue-400 to-purple-500"></span>
-                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-[#8E918F]">PROJECT ALIVE</span>
-                    </h1>
-                    <div className="flex gap-2">
-                        {/* Clear Graph Button */}
-                        <button
-                            onClick={handleClear}
-                            className="p-2 rounded-full text-[#8E918F] hover:text-[#FF5252] hover:bg-[#FF5252]/10 transition-all"
-                            title="Clear Knowledge Graph"
-                        >
-                            <Trash2 className="w-4 h-4" />
-                        </button>
-                        <div className="flex items-center gap-2 px-3 py-1 bg-[#28292A] rounded-full border border-[#3C4043]">
-                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                            <span className="text-xs font-mono text-[#8E918F]">ONLINE</span>
-                        </div>
-                        <button
-                            onClick={handleLiveUpdate}
-                            disabled={isLoading}
-                            className={`p-2 rounded-full transition-all ${isLoading ? 'animate-spin text-[#4285F4]' : 'text-[#8E918F] hover:text-[#4285F4] hover:bg-[#4285F4]/10'}`}
-                            title="Live Update (Dynamic Evolution)"
-                        >
-                            <RefreshCw className="w-4 h-4" />
-                        </button>
-                        {/* Help Button */}
-                        <button
-                            onClick={() => setShowHelp(true)}
-                            className="w-8 h-8 rounded-full bg-[#3C4043] hover:bg-[#4285F4] text-white flex items-center justify-center transition-colors shadow-lg"
-                            title="Help Guide"
-                        >
-                            <HelpCircle className="w-5 h-5" />
-                        </button>
-                    </div>
-                </div>
+                {/* Mode: Hero */}
+                {viewMode === 'hero' && (
+                    <HeroView onSearch={handleSearch} />
+                )}
 
-                {/* Messages Area */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-                    {messages.length === 0 && (
-                        <div className="h-full flex flex-col items-center justify-center text-[#8E918F] space-y-4 opacity-50">
-                            <Network className="w-12 h-12" />
-                            <p className="text-sm">Ready to connect.</p>
-                        </div>
-                    )}
-                    {messages.map((msg, i) => (
-                        <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap shadow-sm ${msg.role === 'user'
-                                ? 'bg-[#28292A] text-[#E3E3E3] rounded-br-none border border-[#3C4043]'
-                                : 'bg-transparent text-[#C4C7C5] border border-[#3C4043]/50' // Gemini-style minimal agent bubble
-                                }`}>
-                                {msg.role === 'agent' && <span className="block text-[#4285F4] text-xs font-bold mb-1">AI</span>}
-                                {msg.text}
-                            </div>
-                        </div>
-                    ))}
-                    {isLoading && (
-                        <div className="flex justify-start">
-                            <div className="bg-transparent p-4 flex items-center gap-2 text-[#8E918F]">
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                <span className="text-xs">Processing...</span>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* Input Area (Dynamic Height) */}
-                <div className="p-6 bg-[#1E1F20] border-t border-[#3C4043]">
-                    {/* Interaction Mode Switch (Identity Only) */}
-                    {entryMode === 'identity-guest' && (
-                        <div className="flex gap-4 mb-4 justify-center">
-                            <button
-                                onClick={() => setInteractionMode('chat')}
-                                className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full transition-colors ${interactionMode === 'chat' ? 'bg-[#E3E3E3] text-black' : 'text-[#8E918F] hover:text-[#E3E3E3]'}`}
-                            >
-                                Chat
-                            </button>
-                            <button
-                                onClick={() => setInteractionMode('ingest')}
-                                className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full transition-colors ${interactionMode === 'ingest' ? 'bg-[#E3E3E3] text-black' : 'text-[#8E918F] hover:text-[#E3E3E3]'}`}
-                            >
-                                Ingest
-                            </button>
-                        </div>
-                    )}
-
-                    <MagicInput
-                        onSendMessage={handleSend}
-                        onFileUpload={handleFileUpload}
-                        isProcessing={isLoading}
-                    />
-                </div>
-            </div>
-
-            {/* 3D Graph */}
-            <div className="flex-1 relative bg-[#131314]">
-                {isLoading && <ScanningOverlay />}
-
-                <div className="absolute top-6 left-6 z-10 bg-[#1E1F20]/90 backdrop-blur px-4 py-2 rounded-full border border-[#3C4043] shadow-lg text-xs font-medium text-[#8E918F] flex items-center gap-3">
-                    <Database className="w-3.5 h-3.5 text-[#8AB4F8]" />
-                    <span><strong className="text-[#E3E3E3]">{filteredData.nodes?.length || 0}</strong> Nodes</span>
-                    <div className="w-px h-3 bg-[#3C4043] mx-1"></div>
-                    <button
-                        onClick={() => setArrangeTrigger(Date.now())}
-                        className="hover:text-white flex items-center gap-1 transition-colors"
-                        title="Re-arrange Nodes"
-                    >
-                        <Network className="w-3.5 h-3.5" />
-                        <span>Arrange</span>
-                    </button>
-                    <div className="w-px h-3 bg-[#3C4043] mx-1"></div>
-                    <button
-                        onClick={handleReset}
-                        className="hover:text-[#FF5252] flex items-center gap-1 transition-colors"
-                        title="Reset Universe"
-                    >
-                        <Trash className="w-3.5 h-3.5" />
-                        <span>Reset</span>
-                    </button>
-                </div>
-
-                {/* --- UI Controls Overlay --- */}
-                {/* Category Filter (Top Left, below Node count) */}
-                <div className="absolute top-20 left-6 z-10 bg-[#1E1F20]/90 backdrop-blur p-4 rounded-xl border border-[#3C4043] shadow-lg space-y-3 w-48">
-                    <h3 className="text-xs font-bold text-[#8E918F] uppercase tracking-widest mb-2">Filters</h3>
-                    {['Person', 'Job', 'Emotion', 'Interest'].map(cat => (
-                        <div key={cat} className="flex items-center justify-between">
-                            <Label htmlFor={`filter-${cat}`} className="text-sm text-[#E3E3E3]">{cat}</Label>
-                            <Switch
-                                id={`filter-${cat}`}
-                                checked={categoryFilters[cat]}
-                                onCheckedChange={(checked) => setCategoryFilters(prev => ({ ...prev, [cat]: checked }))}
+                {/* Mode: Graph (Active) */}
+                {viewMode !== 'hero' && (
+                    <div className="h-full relative animate-in fade-in duration-1000">
+                        {/* 3D Visualizer */}
+                        <div className="absolute inset-0 z-0">
+                            <Graph3D
+                                data={graphData}
+                                onNodeClick={setSelectedNode}
+                                arrangeTrigger={arrangeTrigger}
+                                highlightNodes={highlightNodes}
                             />
                         </div>
-                    ))}
-                </div>
 
-                {/* Importance Slider (Peeling Layers) */}
-                <div className="absolute top-[22rem] left-6 z-10 bg-[#1E1F20]/90 backdrop-blur p-4 rounded-xl border border-[#3C4043] shadow-lg space-y-3 w-48">
-                    <h3 className="text-xs font-bold text-[#8E918F] uppercase tracking-widest mb-2">Peeling Layers</h3>
-                    <div className="space-y-1">
-                        <div className="flex justify-between text-xs text-[#E3E3E3]">
-                            <span>All</span>
-                            <span>Core</span>
+                        {/* Loading Overlay */}
+                        {isLoading && (
+                            <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm pointer-events-none">
+                                <div className="p-8 rounded-full border border-blue-500/30 bg-black/50 animate-pulse">
+                                    <div className="text-blue-400 font-mono tracking-widest text-xs">PROCESSING DATA STREAM...</div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Top Right Controls */}
+                        <div className="absolute top-6 right-6 z-20 flex gap-2">
+                            <div className="glass-panel px-4 py-2 rounded-full flex items-center gap-3 text-xs text-gray-400">
+                                <Database className="w-3 h-3 text-blue-400" />
+                                <span>{graphData.nodes.length} Nodes</span>
+                                <div className="w-px h-3 bg-white/10" />
+                                <button onClick={handleSave} className="hover:text-white"><Save className="w-3 h-3" /></button>
+                                <label className="cursor-pointer hover:text-white">
+                                    <Upload className="w-3 h-3" />
+                                    <input type="file" onChange={handleLoad} className="hidden" accept=".json" />
+                                </label>
+                            </div>
                         </div>
-                        <Slider
-                            min={0}
-                            max={0.1} // PageRank scores are usually small
-                            step={0.001}
-                            value={minImportance}
-                            onValueChange={(val) => setMinImportance(val)}
-                            className="w-full"
-                        />
-                        <div className="text-[10px] text-[#8E918F] text-center mt-1">
-                            Min Importance: {minImportance[0].toFixed(3)}
+
+                        {/* Bottom Chat/Input Area */}
+                        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-full max-w-3xl z-30 px-4">
+                            {/* Chat Bubbles Container */}
+                            <div className="mb-4 max-h-[30vh] overflow-y-auto space-y-2 pr-2 custom-scrollbar flex flex-col-reverse">
+                                {[...messages].reverse().map((msg, i) => (
+                                    <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm backdrop-blur-md ${msg.role === 'user'
+                                            ? 'bg-blue-600/20 border border-blue-500/30 text-blue-100'
+                                            : 'bg-gray-800/40 border border-gray-700/30 text-gray-200'
+                                            }`}>
+                                            {msg.text}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <MagicInput
+                                onSendMessage={handleSend}
+                                onFileUpload={handleFileUpload}
+                                isProcessing={isLoading}
+                            />
                         </div>
+
+                        {/* Side Panel (Context) */}
+                        {selectedNode && (
+                            <div className="absolute top-4 right-4 bottom-24 w-80 glass-panel p-6 shadow-2xl animate-in slide-in-from-right duration-300 z-20 overflow-hidden flex flex-col">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div>
+                                        <div className="text-xs uppercase tracking-widest text-gray-500 mb-1">{selectedNode.label}</div>
+                                        <h2 className="text-xl font-bold text-white leading-tight">{selectedNode.name || selectedNode.id}</h2>
+                                    </div>
+                                    <button onClick={() => setSelectedNode(null)} className="text-gray-500 hover:text-white"><X className="w-5 h-5" /></button>
+                                </div>
+
+                                <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar pr-2">
+                                    <p className="text-sm text-gray-300 leading-relaxed">
+                                        {selectedNode.description || selectedNode.properties?.description || "No detailed description available in the knowledge base."}
+                                    </p>
+
+                                    <div className="space-y-2">
+                                        {Object.entries(selectedNode).map(([key, value]) => {
+                                            if (['id', 'name', 'label', 'x', 'y', 'z', 'vx', 'vy', 'vz', 'index', 'color', 'val'].includes(key)) return null;
+                                            if (typeof value === 'object') return null;
+                                            return (
+                                                <div key={key} className="flex justify-between border-b border-white/5 pb-1">
+                                                    <span className="text-xs text-gray-500 capitalize">{key}</span>
+                                                    <span className="text-xs text-gray-300 text-right">{String(value)}</span>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={handleExpandLive}
+                                    className="mt-4 w-full py-3 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-xl text-blue-300 text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <Maximize2 className="w-4 h-4" />
+                                    Expand Knowledge
+                                </button>
+                            </div>
+                        )}
                     </div>
-                </div>
-
-                {/* Save & Load Controls */}
-                <div className="absolute bottom-20 left-6 flex gap-2 z-10">
-                    <button
-                        onClick={handleSaveGraph}
-                        className="p-3 bg-[#1E1F20] border border-[#3C4043] rounded-full text-[#8E918F] hover:text-[#8AB4F8] hover:border-[#8AB4F8] transition-all tooltip"
-                        title="Save Graph (JSON)"
-                    >
-                        <Save size={18} />
-                    </button>
-                    <label className="p-3 bg-[#1E1F20] border border-[#3C4043] rounded-full text-[#8E918F] hover:text-[#8AB4F8] hover:border-[#8AB4F8] transition-all cursor-pointer tooltip" title="Load Graph (JSON)">
-                        <Upload size={18} />
-                        <input type="file" accept=".json" onChange={handleLoadGraph} className="hidden" />
-                    </label>
-                </div>
-
-                {/* Timeline Slider (Bottom Center) */}
-                <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10 w-96 bg-[#1E1F20]/90 backdrop-blur p-4 rounded-full border border-[#3C4043] shadow-lg flex items-center gap-4">
-                    <span className="text-xs text-[#8E918F] font-mono min-w-[3rem] text-right">{yearRange[0]}</span>
-                    <Slider
-                        min={yearRange[0]}
-                        max={yearRange[1]}
-                        step={1}
-                        value={selectedYear}
-                        onValueChange={(val) => setSelectedYear(val)}
-                        className="flex-1"
-                    />
-                    <span className="text-sm text-[#4285F4] font-bold font-mono min-w-[3rem]">{selectedYear[0]}</span>
-                </div>
-
-                {/* Key forces re-mount on mode switch to ensure empty start */}
-                <Graph3D key={entryMode} data={filteredData} onNodeClick={setSelectedNode} arrangeTrigger={arrangeTrigger} highlightNodes={highlightNodes} />
-            </div>
-
-            {/* Side Panel (Context) */}
-            <div className={`absolute top-4 right-4 bottom-4 w-80 bg-[#1E1F20]/95 backdrop-blur shadow-2xl rounded-2xl border border-[#3C4043] transform transition-transform duration-300 ease-in-out flex flex-col z-20 ${selectedNode ? 'translate-x-0' : 'translate-x-[120%]'}`}>
-                {selectedNode && (
-                    <>
-                        <div className="p-5 border-b border-[#3C4043] flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: selectedNode.color || '#8AB4F8' }}></span>
-                                <h2 className="text-lg font-bold text-[#E3E3E3]">{selectedNode.label}</h2>
-                            </div>
-                            <button onClick={() => setSelectedNode(null)} className="text-[#8E918F] hover:text-white">✕</button>
-                        </div>
-                        <div className="p-5 overflow-y-auto flex-1 space-y-5">
-                            <div>
-                                <h3 className="text-2xl font-bold text-white mb-1">{selectedNode.name}</h3>
-                                <p className="text-sm text-[#C4C7C5] leading-relaxed">
-                                    {selectedNode.description || "No specific description available."}
-                                </p>
-                            </div>
-
-                            <div className="bg-[#28292A] p-4 rounded-xl border border-[#3C4043]">
-                                <label className="text-xs font-bold text-[#8E918F] uppercase tracking-widest mb-3 block border-b border-[#3C4043] pb-2">Properties</label>
-                                <div className="space-y-2">
-                                    {Object.entries(selectedNode).map(([key, value]) => {
-                                        if (['id', 'label', 'name', 'color', 'x', 'y', 'z', 'vx', 'vy', 'vz', 'fx', 'fy', 'fz', 'index', '__threeObj', 'description', 'centrality'].includes(key)) return null;
-                                        return (
-                                            <div key={key} className="flex justify-between text-xs">
-                                                <span className="text-[#8E918F]">{key}</span>
-                                                <span className="text-[#E3E3E3] font-medium text-right max-w-[60%] break-words">{String(value)}</span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* Schema Explanation based on Layer */}
-                            <div className="p-4 bg-[#4285F4]/10 rounded-xl border border-[#4285F4]/20">
-                                <label className="text-xs font-bold text-[#4285F4] uppercase tracking-widest mb-1 block">Context Layer</label>
-                                <div className="text-sm text-[#8AB4F8]">
-                                    {selectedNode.layer === 'Semantic' && "Fact: 불변하는 객관적 사실입니다."}
-                                    {selectedNode.layer === 'Episodic' && "Memory: 시간과 함께 기록된 경험입니다."}
-                                    {selectedNode.layer === 'Psychometric' && "Inner: 내면의 감정이나 가치관입니다."}
-                                    {selectedNode.layer === 'Kinetic' && "Action: 실행 가능한 행동입니다."}
-                                    {!selectedNode.layer && "General Entity"}
-                                </div>
-                            </div>
-
-                            {/* Expansion Action */}
-                            <button
-                                onClick={handleExpand}
-                                disabled={isLoading}
-                                className="w-full py-3 bg-[#4285F4] hover:bg-[#3367D6] text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                            >
-                                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Network className="w-4 h-4" />}
-                                Expand Knowledge
-                            </button>
-                        </div>
-                    </>
                 )}
             </div>
         </main>

@@ -15,21 +15,20 @@
 ### 🧠 Backend (The Brain)
 시스템의 지능과 기억을 담당하는 핵심 엔진입니다.
 
+- **Precision Concept Extraction (Gemini 2.0 Flash)**
+    - **Fact-based Predicates**: `RELATED`와 같은 모호한 연결을 배제하고, `FOUNDED_BY`, `ACQUIRED` 등 팩트에 기반한 구체적인 술어(Verb phrase)를 추출하여 지식의 높은 가독성과 정합성 확보.
+    - **Cluster Bridging (Constellation Logic)**: 파편화된 지식 섬들을 `ROOT_CONCEPT_OF` 관계를 통해 메인 키워드에 강제 결합하여 하나의 거대한 '지식 성단' 구축.
 - **4-Layer Ontology Schema (ALIVE Model)**
-    - **Semantic**: 객관적 사실 (이름, 직업, 관계)
-    - **Episodic**: 시공간이 특정된 기억 사건 (`Event` Node)
-    - **Psychometric**: 내면의 감정, 가치, 성격 (`Emotion`, `Value` Node)
-    - **Kinetic**: 사용자의 의도와 행동 가능성
-- **Context-Aware Active Agency**
-    - **Genesis Interviewer**: 사용자의 그래프 상태를 실시간 분석하여, 누락된 연결고리(Missing Link)를 묻는 능동형 질문 생성.
-- **Active Learning**: 채팅창의 대화를 실시간으로 분석하여 Node & Edge로 변환 및 저장 (`source: 'user'` 태깅).
+    - **Semantic, Episodic, Psychometric, Kinetic** 레이어를 통한 다각적 자아 구조화.
 
 ### 🪞 Frontend (The Mirror)
 디지털 자아를 마주하는 몰입형 인터페이스입니다.
 
-- **Immersive 3D Visualization**: WebGL 기반으로 우주를 유영하듯 자신의 내면을 탐험하는 Dark Mode UI.
-- **Memory Timeline**: 그래프 내의 시간 정보를 추출하여 과거의 특정 시점으로 "기억의 시간 여행" 기능 제공.
-- **Interactive Controls**: 중요도 기반 필터링(Peeling Layers) 및 Universe Reset 기능.
+- **Anti-Gravity 3D Visualization (Sci-Fi Aesthetic)**
+    - **Zero-G Physics**: 무중력 상태를 모사한 탄성 물리 엔진을 통해 노드들이 역동적이면서도 안정적으로 부유하는 시각적 연출.
+    - **Hero-Centric LOD (Level of Detail)**: 중요 노드(Root/High Centrality)는 거리에 상관없이 선명하게 이름을 표시하여 정보의 위계 확보.
+    - **Luminous Beams & Particles**: 빛나는 네온 광선과 데이터 흐름을 시각화하는 입자 애니메이션을 통해 미래지향적 감성 구현.
+- **Magic Input & File Digestion**: 채팅과 파일 처리를 통합한 인터페이스.
 
 ### 🔌 Connectivity & Expansion
 ### 🔌 Connectivity & Expansion

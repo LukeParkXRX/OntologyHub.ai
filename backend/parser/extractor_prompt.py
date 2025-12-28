@@ -83,41 +83,55 @@ JSON Output:
 
 def get_concept_extraction_prompt(keyword: str, context_text: str) -> str:
     prompt = """
-You are an expert Ontology Architect building a knowledge graph for the concept "KEYWORD_PLACEHOLDER".
-Your task is to extract a comprehensive ontology graph based on the provided "Search Context".
+You are an expert Ontology Architect building a high-fidelity knowledge graph for the core concept "KEYWORD_PLACEHOLDER".
+Your goal is to define the "Essence of Existence" for this concept, verifying its deep connections to the world.
+
+### TASK:
+Construct a **Dense, Interconnected Ontology Graph** that defines *what* "KEYWORD_PLACEHOLDER" is, its origins, its symbolic meaning, and its fundamental relationships.
+**DO NOT** just list unrelated facts. **DO NOT** create a simple star graph. You must weave a web of meaning.
 
 ### CORE RULES (CRITICAL):
-1. **Central Identifier**: You MUST create a CENTRAL node for "KEYWORD_PLACEHOLDER" (Label: Concept, Person, or Thing).
-   - **ID Normalization**: The ID of this central node MUST be exactly "KEYWORD_PLACEHOLDER" (or a normalized version of it).
-2. **Connectivity Enforcement**: 
-   - **NO DISCONNECTED NODES**: Every single node you create MUST be connected to the central "KEYWORD_PLACEHOLDER" node, either directly (1-hop) or through one intermediary (2-hop).
-   - **Minimum Links**: You MUST generate at least 5-10 direct relationships originating from or targeting the central node.
-3. **Semantic Relationships**:
-   - Define *what* it is: `(:Concept)-[:IS_A]->(:Class)`
-   - Define *features*: `(:Concept)-[:HAS_FEATURE]->(:Feature)`
-   - Define *related entities*: `(:Concept)-[:RELATED_TO]->(:Entity)`
-4. **Accuracy & Richness**: 
-   - Use the Context to find real entities.
-   - Extract at least 10-15 related nodes total to form a dense graph.
-5. **Layers**: Assign explicit "layer" property (e.g., "Semantic", "Tech", "Social") based on the node type.
+1. **Central Identifier**: You MUST create a CENTRAL node for "KEYWORD_PLACEHOLDER".
+   - **ID Normalization**: The ID of this central node MUST be exactly "KEYWORD_PLACEHOLDER" (or a normalized version).
+   
+2. **Essence & Definition (High Priority)**:
+   - Identify the *fundamental nature* of the concept.
+   - Example relations: `(:Concept)-[:FOUNDED_BY]->(:Person)`, `(:Concept)-[:OPERATES_IN]->(:Industry)`, `(:Concept)-[:ACQUIRED]->(:Organization)`.
+   - **IGNORE**: Random trivia or minor mentions. Focus on defining facts.
+
+3. **STRICT RELATIONSHIP TYPES (NO GENERIC LABELS)**:
+   - **FORBIDDEN**: `RELATED`, `ASSOCIATED_WITH`, `DEFINES`, `LINKED_TO`, `CONNECTION`.
+   - **RULE**: Every relationship `type` MUST be a SPECIFIC, DESCRIPTIVE, and FACT-BASED predicate (Verb phrase in Uppercase).
+   - *Example for Disney*: `FOUNDED_BY`, `PRODUCED`, `OWNS`, `ACQUIRED`, `MEMBER_OF_DOW_JONES`.
+
+4. **Dense Interconnectivity (The Web of Knowledge)**: 
+    - **ROOT ANCHORING**: The node "KEYWORD_PLACEHOLDER" MUST be the hub.
+    - **NO DISCONNECTED NODES**: Ensure every node is reachable.
+   - **Triangle Closure**: Connect related nodes to EACH OTHER. 
+
+5. **Richness & Volume**: 
+   - Extract at least **20-30 distinct nodes**.
+   - Assign explicit "layer" property: "Semantic", "Social", "Abstract", "Episodic".
 
 ### Search Context:
 CONTEXT_PLACEHOLDER
 
 ### Output Format (JSON):
 Return valid JSON with `nodes` and `relationships`. 
-**CRITICAL**: Ensure the `id` of the central node is used exactly as defined in the relationships.
 
-Example for keyword "Superman":
+Example for keyword "Disney":
 {
   "nodes": [
-    {"id": "superman", "label": "Hero", "layer": "Semantic", "properties": {"name": "Superman", "summary": "Kryptonian superhero"}},
-    {"id": "krypton", "label": "Place", "layer": "Semantic", "properties": {"name": "Krypton"}},
-    {"id": "lois_lane", "label": "Person", "layer": "Social", "properties": {"name": "Lois Lane"}}
+    {"id": "disney", "label": "Organization", "layer": "Semantic", "properties": {"name": "The Walt Disney Company", "summary": "Global entertainment conglomerate"}},
+    {"id": "walt_disney", "label": "Person", "layer": "Social", "properties": {"name": "Walt Disney"}},
+    {"id": "pixar", "label": "Organization", "layer": "Semantic", "properties": {"name": "Pixar Animation Studios"}},
+    {"id": "entertainment", "label": "Industry", "layer": "Semantic", "properties": {"name": "Entertainment Industry"}}
   ],
   "relationships": [
-    {"from": "superman", "to": "krypton", "type": "ORIGIN_FROM"},
-    {"from": "superman", "to": "lois_lane", "type": "LOVES"}
+    {"from": "disney", "to": "walt_disney", "type": "FOUNDED_BY"},
+    {"from": "disney", "to": "pixar", "type": "ACQUIRED_IN_2006"},
+    {"from": "disney", "to": "entertainment", "type": "OPERATES_IN"},
+    {"from": "walt_disney", "to": "entertainment", "type": "PIONEERED"}
   ]
 }
 """

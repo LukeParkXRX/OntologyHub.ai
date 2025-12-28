@@ -10,13 +10,12 @@ from pypdf import PdfReader
 from dotenv import load_dotenv
 
 # Internal Imports
-# Internal Imports
 from parser.extractor import extract_graph_elements, extract_concept_graph
 from parser.file_loader import load_file_content
 from agent.classifier import classify_and_extract
 from parser.ingest import Neo4jIngestor
 from parser.web_search import perform_web_search
-from analysis.network_stats import enrich_graph_data
+from analysis.network_stats import enrich_graph_data, filter_connected_component
 from graphrag.retriever import GraphRetriever
 from graphrag.answer_gen import generate_answer
 from neo4j import GraphDatabase
@@ -73,13 +72,13 @@ async def get_graph():
     
     # [ALIVE] Strict Mode: Only fetch nodes explicitly tagged as 'user' identity.
     # This prevents junk/test data from polluting the view.
+    # [ALIVE] Fetch both User and Concept nodes to ensure a full view.
     query = """
     MATCH (n)
-    WHERE n.source = 'user'
+    WHERE n.source IN ['user', 'concept'] OR n.source IS NULL
     OPTIONAL MATCH (n)-[r]->(m)
-    WHERE m.source = 'user'
     RETURN n, r, m
-    LIMIT 300
+    LIMIT 500
     """
     
     nodes_map = {}
@@ -93,38 +92,44 @@ async def get_graph():
                 m = record["m"]
                 r = record["r"]
                 
-                # Nodes (Always process N)
-                n_id = n.element_id if hasattr(n, "element_id") else str(n.id)
-                n_label = list(n.labels)[0] if n.labels else "Unknown"
-                n_props = dict(n)
+                # 1. Standardized Node ID Extraction
+                def get_node_id(node):
+                    # Use 'id' property if exists (normalized string from extractor), else element_id
+                    props = dict(node)
+                    return props.get('id') or (node.element_id if hasattr(node, "element_id") else str(node.id))
 
+                n_id = get_node_id(n)
+                n_label = list(n.labels)[0] if n.labels else "Unknown"
+                
                 if n_id not in nodes_map:
                     nodes_map[n_id] = {
-                        "id": n_id, 
+                        "id": n_id,
                         "label": n_label, 
                         "layer": n.get("layer"), 
-                        "name": n.get("name") or n.get("summary") or n.get("topic") or "Unknown",
+                        "name": n.get("name") or n.get("summary") or n.get("topic") or n_id,
                         "val": 1,
-                        **n_props
+                        **dict(n)
                     }
+                    # Ensure property 'id' doesn't fight with our chosen 'id'
+                    nodes_map[n_id]["id"] = n_id
                 
                 # Process M and R only if they exist
                 if m and r is not None:
-                    m_id = m.element_id if hasattr(m, "element_id") else str(m.id)
+                    m_id = get_node_id(m)
                     m_label = list(m.labels)[0] if m.labels else "Unknown"
-                    m_props = dict(m)
 
                     if m_id not in nodes_map:
                         nodes_map[m_id] = {
-                            "id": m_id, 
+                            "id": m_id,
                             "label": m_label, 
                             "layer": m.get("layer"), 
-                            "name": m.get("name") or m.get("summary") or m.get("topic") or "Unknown",
+                            "name": m.get("name") or m.get("summary") or m.get("topic") or m_id,
                             "val": 1,
-                            **m_props
+                            **dict(m)
                         }
+                        nodes_map[m_id]["id"] = m_id
                         
-                    # Links
+                    # Links (Consistent IDs)
                     links.append({
                         "source": n_id,
                         "target": m_id,
@@ -132,9 +137,9 @@ async def get_graph():
                     })
                 
                 
-        # Apply Network Analysis (Centrality & Community)
+        # Apply Network Analysis (Weight 'user/Me' as root for global view)
         raw_nodes = list(nodes_map.values())
-        enriched_data = enrich_graph_data(raw_nodes, links)
+        enriched_data = enrich_graph_data(raw_nodes, links, root_id="user")
                 
         return GraphData(nodes=enriched_data["nodes"], links=enriched_data["links"])
     except Exception as e:
@@ -319,88 +324,99 @@ async def ingest_search_endpoint(req: IngestRequest):
             return {"status": "warning", "message": "No entities extracted from search."}
 
         # 4. Ingest Extracted Data into Neo4j (CRITICAL FIX)
+        # Inject source=concept so it's visible in get_graph
+        for node in nodes:
+            if "properties" not in node: node["properties"] = {}
+            node["properties"]["source"] = "concept"
+            
         print(f"Ingesting {len(nodes)} nodes and {len(relationships)} relationships into Neo4j...")
         ingestor = Neo4jIngestor()
         ingestor.ingest_batch(extracted_data)
         ingestor.close()
 
-        # 5. Re-Fetch Subgraph from Neo4j (To ensure ID consistency with get_graph)
-        # We search for the Keyword node and its 1-hop neighbors
-        driver = GraphDatabase.driver(URI, auth=AUTH)
-        query = """
-        MATCH (n) 
-        WHERE toLower(n.name) CONTAINS toLower($keyword) 
-           OR toLower(n.topic) CONTAINS toLower($keyword)
-           OR toLower(n.id) CONTAINS toLower($keyword)
-        
-        OPTIONAL MATCH (n)-[r]-(m)
-        RETURN n, r, m
-        LIMIT 100
-        """
-        
+        # 5. Retrieve Combined Graph (AI + User Data)
         nodes_map = {}
         links = []
         
+        # Optimized Neighborhood Query (Fetch 1-hop around keyword)
+        query = """
+        MATCH (start)
+        WHERE toLower(start.name) CONTAINS toLower($keyword) 
+           OR toLower(start.topic) CONTAINS toLower($keyword)
+           OR toLower(start.id) CONTAINS toLower($keyword)
+        
+        MATCH (start)-[r]-(neighbor)
+        RETURN start, r, neighbor
+        LIMIT 500
+        """
+        
+        print(f"[Search] Fetching neighborhood for: {keyword}")
+        driver = GraphDatabase.driver(URI, auth=AUTH)
         with driver.session() as session:
             result = session.run(query, keyword=keyword)
-            for record in result:
-                n = record["n"]
-                m = record["m"]
+            # Use list() to avoid issues with double iteration or session closing
+            records = list(result)
+            print(f"[Search] DB Query returned {len(records)} records.")
+            
+            def get_node_id(node):
+                props = dict(node)
+                return props.get('id') or (node.element_id if hasattr(node, "element_id") else str(node.id))
+
+            for record in records:
+                s = record["start"]
+                neighbor = record["neighbor"]
                 r = record["r"]
                 
-                # Check for nulls (optional match)
-                if not n: continue
+                if not s or not neighbor: continue
 
-                # Reuse same formatting logic as get_graph
-                n_id = n.element_id if hasattr(n, "element_id") else str(n.id)
-                n_props = dict(n)
+                # Get Correct IDs
+                s_id = get_node_id(s)
+                n_id = get_node_id(neighbor)
                 
-                if n_id not in nodes_map:
-                    nodes_map[n_id] = {
-                        "id": n_id,
-                        "label": list(n.labels)[0] if n.labels else "Unknown",
-                        "val": 1,
-                        **n_props
-                    }
-
-                if m and r is not None:
-                    m_id = m.element_id if hasattr(m, "element_id") else str(m.id)
-                    m_props = dict(m)
-                    
-                    if m_id not in nodes_map:
-                        nodes_map[m_id] = {
-                            "id": m_id,
-                            "label": list(m.labels)[0] if m.labels else "Unknown",
+                # Add nodes to map
+                for node, nid in [(s, s_id), (neighbor, n_id)]:
+                    if nid not in nodes_map:
+                        nodes_map[nid] = {
+                            "id": nid,
+                            "label": list(node.labels)[0] if node.labels else "Concept",
                             "val": 1,
-                            **m_props
+                            **dict(node)
                         }
-                    
-                    links.append({
-                        "source": n_id,
-                        "target": m_id,
-                        "name": r.type
-                    })
+                        # Re-enforce ID consistency
+                        nodes_map[nid]["id"] = nid
+
+                # Add link (Only if r exists and is valid)
+                r_type = ""
+                try:
+                    if r and hasattr(r, "type"): 
+                        r_type = r.type
+                except:
+                    pass
+                
+                links.append({
+                    "source": s_id,
+                    "target": n_id,
+                    "name": r_type
+                })
         
         driver.close()
-
-        # If DB fetch returns empty (maybe keyword too specific?), fallback to extracted data or just return empty
-        # But extracted data has wrong IDs. Ideally we trust ingest worked.
-        # Let's use the DB result.
-
-        # 6. Apply Network Analysis
+        # 6. Apply Network Analysis (Force Keyword as Root)
         raw_nodes = list(nodes_map.values())
-        enriched_data = enrich_graph_data(raw_nodes, links)
-
+        enriched_data = enrich_graph_data(raw_nodes, links, root_id=keyword)
+        
+        # 7. [ALIVE] Filter for Connected Component containing root
+        final_data = filter_connected_component(enriched_data["nodes"], enriched_data["links"], root_id=keyword)
+        
         return {
             "status": "success", 
             "message": f"Created/Fetched concept graph for '{keyword}'",
-            "nodes": enriched_data["nodes"], 
-            "links": enriched_data["links"],
-            "context_preview": search_context[:200]
+            "nodes": final_data["nodes"], 
+            "links": final_data["links"],
+            "context_preview": search_context[:200] if 'search_context' in locals() else ""
         }
-            
     except Exception as e:
-        print(f"Concept Ingestion Error: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/ingest/file")

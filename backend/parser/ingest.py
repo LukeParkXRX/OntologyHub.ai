@@ -131,9 +131,17 @@ class Neo4jIngestor:
             # Add temp_id to props for matching
             props["_temp_id"] = nid
             
-            # Sanitize Labels (Handle spaces like "TV Drama")
+            # [ALIVE FIX] Ensure 'id' and 'name' are in properties for DB retention
+            if "id" not in props: props["id"] = nid
+            if "name" in node: props["name"] = node["name"]
+            
+            # Sanitize Labels (Handle spaces, hyphens, etc. using backticks)
             def sanitize(l):
-                return f"`{l}`" if " " in l else l
+                import re
+                if not l: return "Unknown"
+                if not re.match(r"^[a-zA-Z0-9_]+$", str(l)):
+                    return f"`{l}`"
+                return str(l)
 
             # 1. Define Primary Label & Key
             primary_label = sanitize(lbl)
@@ -193,20 +201,23 @@ class Neo4jIngestor:
 
         # 2. Create Relationships matching by _temp_id
         for rel in data.get("relationships", []):
-            from_id = rel["from"]
-            to_id = rel["to"]
-            rtype = rel["type"]
+            from_id = rel.get("source") or rel.get("from")
+            to_id = rel.get("target") or rel.get("to")
+            rtype = rel.get("type") or rel.get("relationship") or "RELATED"
             rprops = rel.get("properties", {})
             
+            if not from_id or not to_id: continue
+            rtype = str(rtype).upper().replace(" ", "_").replace("-", "_")
+
             cypher = f"""
             MATCH (a), (b)
             WHERE a._temp_id = $from_id AND b._temp_id = $to_id
             MERGE (a)-[r:{rtype}]->(b)
             SET r += $rprops
             """
-            tx.run(cypher, from_id=from_id, to_id=to_id, rprops=rprops)
-            
-        # 3. Cleanup _temp_id (Optional, but good for cleanliness)
+            tx.run(cypher, from_id=str(from_id), to_id=str(to_id), rprops=rprops)
+        
+        # 3. Cleanup _temp_id
         tx.run("MATCH (n) WHERE n._temp_id IS NOT NULL REMOVE n._temp_id")
 
 if __name__ == "__main__":

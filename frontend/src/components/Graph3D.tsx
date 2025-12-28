@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import * as THREE from 'three';
 import SpriteText from 'three-spritetext';
 import * as d3 from 'd3';
@@ -29,197 +29,237 @@ const Graph3D = ({ data, onNodeClick, arrangeTrigger, highlightNodes }: Graph3DP
     const fgRef = useRef<any>(null);
     const frameRef = useRef<number>(0);
 
+    // [ALIVE FIX] Deep Clone & Sanitize Data
+    // 1. Prevent D3 mutation side-effects.
+    // 2. Filter dangling links.
+    // 3. Calculate node importance (degree)
+    const cleanData = useMemo(() => {
+        if (!data.nodes) return { nodes: [], links: [] };
+
+        const newNodes = data.nodes.map(n => ({
+            ...n,
+            connections: 0
+        }));
+        const nodeMap = new Map(newNodes.map(n => [n.id, n]));
+
+        const newLinks = data.links
+            .filter(l => {
+                const s = typeof l.source === 'object' ? l.source.id : l.source;
+                const t = typeof l.target === 'object' ? l.target.id : l.target;
+                return nodeMap.has(s) && nodeMap.has(t);
+            })
+            .map(l => {
+                const s = typeof l.source === 'object' ? l.source.id : l.source;
+                const t = typeof l.target === 'object' ? l.target.id : l.target;
+
+                // Track connections
+                const sourceNode = nodeMap.get(s);
+                const targetNode = nodeMap.get(t);
+                if (sourceNode) sourceNode.connections++;
+                if (targetNode) targetNode.connections++;
+
+                return {
+                    ...l,
+                    source: s,
+                    target: t
+                };
+            });
+
+        return { nodes: Array.from(nodeMap.values()), links: newLinks };
+    }, [data]);
+
     // Animation Loop
     useEffect(() => {
         const tick = () => {
-            if (fgRef.current) {
+            if (!fgRef.current) return;
+            try {
                 const camera = fgRef.current.camera();
                 const scene = fgRef.current.scene();
                 const time = Date.now() * 0.001;
 
-                // Smart LOD for Text
                 const dist = camera.position.length();
-                const textOpacity = dist > 500 ? 0 : (dist > 250 ? 1 - ((dist - 250) / 250) : 0.9);
 
                 scene.traverse((obj: any) => {
-                    // Update Text Opacity
+                    // Update Text Opacity (Hero-Centric LOD)
                     if (obj.isSprite && obj.textHeight) {
-                        obj.material.opacity = textOpacity;
+                        const isHero = obj.userData?.isHero;
+                        if (isHero) {
+                            // Heroes always visible, slightly fade with dist
+                            obj.material.opacity = Math.max(0.6, 1.0 - (dist / 1500));
+                        } else {
+                            // Regular nodes fade faster
+                            obj.material.opacity = dist > 600 ? 0 : (dist > 300 ? 1 - ((dist - 300) / 300) : 0.9);
+                        }
                     }
 
-                    // Rotating Rings
-                    if (obj.userData?.isRing) {
-                        obj.rotation.z += 0.01;
-                        obj.rotation.x += 0.005;
-                    }
-                    if (obj.userData?.isInnerRing) {
-                        obj.rotation.z -= 0.02;
-                        obj.rotation.y += 0.01;
+                    // Shell Rotation
+                    if (obj.userData?.isShell) {
+                        obj.rotation.x += obj.userData.speed;
+                        obj.rotation.y += obj.userData.speed * 0.5;
                     }
 
-                    // Pulse Animation (Root/Special nodes)
+                    // Pulse Glow
                     if (obj.userData?.isPulse) {
                         const baseScale = obj.userData.baseScale || 1;
-                        const scale = baseScale + Math.sin(time * 2) * 0.2;
-                        obj.scale.set(scale, scale, scale);
+                        const pulse = 1 + Math.sin(time * 3) * 0.1;
+                        obj.scale.set(baseScale * pulse, baseScale * pulse, baseScale * pulse);
                     }
                 });
-            }
+            } catch (e) { }
             frameRef.current = requestAnimationFrame(tick);
         };
         tick();
         return () => cancelAnimationFrame(frameRef.current);
     }, []);
 
-    // Physics Tuning: Collision & Charge
+    // Physics Tuning: Anti-Gravity (Strong Repulsion but High Friction)
     useEffect(() => {
-        if (fgRef.current) {
-            // Increase repulsion
-            fgRef.current.d3Force('charge').strength(-100);
-            // Add collision
-            fgRef.current.d3Force('collide', d3.forceCollide((node: any) => {
-                const size = (node.val || 2) * (node.id === node.keyword ? 1.5 : 1);
-                return size * 4; // Keep nodes separated
-            }));
-        }
-    }, [data]);
+        const fg = fgRef.current;
+        if (!fg) return;
 
-    // Re-heat simulation on trigger
-    useEffect(() => {
-        if (fgRef.current && arrangeTrigger) {
-            console.log("Re-heating simulation for arrangement...");
-            fgRef.current.d3ReheatSimulation();
-        }
-    }, [arrangeTrigger]);
+        const timer = setTimeout(() => {
+            if (!fgRef.current) return;
+            try {
+                // High repulsion force
+                fgRef.current.d3Force('charge')?.strength(-1000);
+                fgRef.current.d3Force('link')?.distance(120);
+                fgRef.current.d3Force('center')?.strength(0.05);
+
+                // [Tuning] Calam down expansion
+                fgRef.current.d3VelocityDecay(0.6); // More friction, slower movement
+
+                fgRef.current.d3ReheatSimulation();
+            } catch (err) { }
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [cleanData]);
 
     return (
-        <div className="w-full h-full bg-[#050505]">
+        <div className="w-full h-full bg-[#02040a]">
             <ForceGraph3D
                 ref={fgRef}
-                graphData={data}
+                graphData={cleanData}
                 nodeLabel="name"
+                showNavInfo={false}
 
-                // Physics & Layout
-                d3VelocityDecay={0.2}
-                d3AlphaDecay={0.01}
-                cooldownTicks={1000}
-                onEngineStop={() => console.log('Sim stopped')}
+                // Physics
+                cooldownTicks={120}
 
-                // --- Node Rendering ---
+                // --- Node Rendering (Sci-Fi Glowing Spheres) ---
                 nodeThreeObject={(node: any) => {
                     const group = new THREE.Group();
 
-                    // Determine Node Type & Style
-                    const isRoot = node.id.toLowerCase() === (node.keyword || '').toLowerCase() || node.label === 'Concept';
-                    const isNew = highlightNodes?.has(node.id);
-                    const isEvent = node.label === 'Event';
+                    // Style by Category/Group
+                    const isRoot = node.isRoot || node.properties?.isRoot || node.id === (node.keyword || '');
+                    const color = isRoot ? '#ffffff' : (node.group === 1 ? '#00f0ff' : '#a855f7');
 
-                    // Group Color Palette (Neon/Cyberpunk)
-                    const palette = ['#00FFFF', '#BD00FF', '#FF0055', '#FFFF00', '#00FF99', '#FF9900'];
-                    // Use group ID from backend analysis (default to 1 if missing)
-                    const groupColor = node.group ? palette[(node.group - 1) % palette.length] : null;
+                    // Scaled by connection importance
+                    const baseSize = 4;
+                    const scaleFactor = Math.min(2.5, 1 + (node.connections || 0) * 0.15);
+                    const size = isRoot ? baseSize * 2.5 : baseSize * scaleFactor;
 
-                    let color = '#4285F4'; // Default Blue
-                    if (isNew) color = '#FFFFFF';
-                    else if (isEvent) color = '#FF5252'; // Distinct Red for Memories
-                    else if (node.color) color = node.color;
-                    else if (groupColor) color = groupColor;
-
-                    // 1. Core Sphere
-                    // Use backend 'val' for size (default 2 if missing). Root gets boost.
-                    const baseSize = (node.val || 2);
-                    const size = (isRoot || isNew) ? baseSize * 1.5 : baseSize;
-
+                    // 1. Core Luminous Sphere
                     const coreGeo = new THREE.SphereGeometry(size, 32, 32);
-                    const coreMat = new THREE.MeshPhysicalMaterial({
-                        color: isNew ? '#FFFFA0' : (isRoot ? '#FFFFFF' : color),
-                        emissive: isNew ? '#FFFF00' : color,
-                        emissiveIntensity: isNew ? 3.0 : (isRoot ? 2 : 0.6), // Super bright for new nodes
+                    const coreMat = new THREE.MeshStandardMaterial({
+                        color: color,
+                        emissive: color,
+                        emissiveIntensity: 1.5,
                         roughness: 0,
-                        metalness: 0.5,
-                        clearcoat: 1,
-                        transparent: true,
-                        opacity: 0.9
                     });
                     const core = new THREE.Mesh(coreGeo, coreMat);
-                    core.userData = { isPulse: (isRoot || isNew), baseScale: 1 }; // Pulse if new
                     group.add(core);
 
-                    // 2. Glow Sprite (Halo)
-                    const getGlowSprite = (c: string, s: number) => {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = 64; canvas.height = 64;
-                        const ctx = canvas.getContext('2d');
-                        if (ctx) {
-                            const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-                            gradient.addColorStop(0, 'rgba(255,255,255,0.8)');
-                            gradient.addColorStop(0.2, c);
-                            gradient.addColorStop(1, 'rgba(0,0,0,0)');
-                            ctx.fillStyle = gradient;
-                            ctx.fillRect(0, 0, 64, 64);
-                        }
-                        const tex = new THREE.CanvasTexture(canvas);
-                        const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
-                        const sprite = new THREE.Sprite(mat);
-                        sprite.scale.set(s, s, s);
-                        return sprite;
-                    };
-                    // Glow size proportional to node size
-                    group.add(getGlowSprite(color, isRoot ? size * 10 : size * 6));
+                    // 2. Neon Halo Ghost
+                    const haloGeo = new THREE.SphereGeometry(size * 1.2, 32, 32);
+                    const haloMat = new THREE.MeshBasicMaterial({
+                        color: color,
+                        transparent: true,
+                        opacity: 0.15,
+                        side: THREE.BackSide
+                    });
+                    const halo = new THREE.Mesh(haloGeo, haloMat);
+                    group.add(halo);
 
-                    // 3. Rings (For Distinction & Aesthetics)
-                    // Add rings for Root or Important nodes (val > 4)
-                    if (isRoot || node.val > 4) {
-                        const ringGeo = new THREE.TorusGeometry(size * 1.5, 0.1, 8, 50);
-                        const ringMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.8, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
-                        const ring = new THREE.Mesh(ringGeo, ringMat);
-                        ring.userData = { isRing: true };
-                        group.add(ring);
-                    }
+                    // 3. Cyber Shell (Icosahedron Wireframe)
+                    const shellGeo = new THREE.IcosahedronGeometry(size * 1.5, 0);
+                    const shellMat = new THREE.MeshBasicMaterial({
+                        color: color,
+                        wireframe: true,
+                        transparent: true,
+                        opacity: 0.2
+                    });
+                    const shell = new THREE.Mesh(shellGeo, shellMat);
+                    shell.userData = { isShell: true, speed: 0.01 + Math.random() * 0.01 };
+                    group.add(shell);
 
-                    if (isRoot) {
-                        const innerRingGeo = new THREE.TorusGeometry(size * 2.2, 0.05, 8, 50);
-                        const innerRingMat = new THREE.MeshBasicMaterial({ color: '#FFFFFF', transparent: true, opacity: 0.5, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
-                        const innerRing = new THREE.Mesh(innerRingGeo, innerRingMat);
-                        innerRing.userData = { isInnerRing: true };
-                        group.add(innerRing);
-                    }
+                    // 4. Label Text
+                    const labelText = node.name || node.id;
+                    const sprite = new SpriteText(labelText);
+                    sprite.color = '#ffffff';
+                    sprite.textHeight = Math.max(4, size * 0.6);
+                    sprite.position.y = size * 2;
+                    sprite.fontFace = 'Inter, sans-serif';
+                    sprite.backgroundColor = 'rgba(0,0,0,0.4)';
+                    sprite.padding = 1;
 
-                    // 4. Text Label
-                    const label = node.name || node.label || node.id;
-                    const text = new SpriteText(label);
-                    text.color = '#E3E3E3'; // Light Gray text
-                    text.textHeight = isRoot ? size + 2 : size + 1;
-                    text.position.y = size * 3;
-                    text.fontFace = 'Geist Mono, Inter, sans-serif';
-                    group.add(text);
+                    // [Optimization] Tag for smart LOD
+                    sprite.userData = { isHero: isRoot || (node.connections || 0) > 10 };
+
+                    group.add(sprite);
 
                     return group;
                 }}
                 nodeThreeObjectExtend={false}
 
-                // --- Link Rendering ---
-                linkWidth={1} // VISIBLE LINES
-                linkColor={(link: any) => {
-                    return 'rgba(100, 149, 237, 0.4)';
+                // --- Link Rendering (Subtle Glowing Beams) ---
+                linkWidth={0.8}
+                linkColor={() => 'rgba(0, 240, 255, 0.3)'}
+                linkDirectionalParticles={3}
+                linkDirectionalParticleWidth={1.8}
+                linkDirectionalParticleSpeed={0.005}
+                linkDirectionalParticleColor={() => '#ffffff'}
+
+                // Directional Arrows
+                linkDirectionalArrowLength={3}
+                linkDirectionalArrowRelPos={1}
+
+                // Relation Predicate Labels
+                linkThreeObjectExtend={true}
+                linkThreeObject={(link: any) => {
+                    // Avoid 'RELATED' or empty clutter
+                    const name = link.name;
+                    if (!name || name === 'RELATED' || name === '') {
+                        return new THREE.Object3D(); // Hidden/Empty object for D3 compatibility
+                    }
+
+                    const sprite = new SpriteText(name);
+                    sprite.color = 'rgba(0, 240, 255, 0.9)';
+                    sprite.textHeight = 3.0;
+                    sprite.fontFace = 'Inter, sans-serif';
+                    sprite.backgroundColor = 'rgba(0,0,0,0.7)';
+                    sprite.padding = 0.8;
+                    return sprite;
+                }}
+                linkPositionUpdate={(sprite: any, { start, end }: any) => {
+                    const middlePos = Object.assign({}, ...['x', 'y', 'z'].map(c => ({
+                        [c]: start[c] + (end[c] - start[c]) / 2
+                    })));
+                    Object.assign(sprite.position, middlePos);
                 }}
 
-                // Particles (Data Flow)
-                linkDirectionalParticles={2}
-                linkDirectionalParticleWidth={1.5}
-                linkDirectionalParticleSpeed={0.005}
-                linkDirectionalParticleColor={() => '#FFFFFF'}
-
-                backgroundColor="#050505"
+                backgroundColor="#010308"
 
                 onNodeClick={(node: any) => {
-                    const distance = 80;
+                    const distance = 100;
                     const distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z);
-                    fgRef.current.cameraPosition(
-                        { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio },
-                        node,
-                        2000
-                    );
+                    if (fgRef.current) {
+                        fgRef.current.cameraPosition(
+                            { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio },
+                            node,
+                            1500
+                        );
+                    }
                     if (onNodeClick) onNodeClick(node);
                 }}
                 enableNodeDrag={true}
@@ -232,5 +272,13 @@ const Graph3D = ({ data, onNodeClick, arrangeTrigger, highlightNodes }: Graph3DP
         </div>
     );
 };
+
+// Helper
+function hexToRgba(hex: string, alpha: number) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
 export default Graph3D;
