@@ -12,9 +12,11 @@ AUTH = (os.getenv("NEO4J_USERNAME"), os.getenv("NEO4J_PASSWORD"))
 class Neo4jIngestor:
     def __init__(self, driver_override=None):
         self.driver = driver_override or GraphDatabase.driver(URI, auth=AUTH)
+        self.owns_driver = driver_override is None
 
     def close(self):
-        self.driver.close()
+        if self.owns_driver:
+            self.driver.close()
 
     def ingest_data(self, graph_data: dict):
         with self.driver.session() as session:

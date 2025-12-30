@@ -156,8 +156,6 @@ async def get_graph():
     except Exception as e:
         print(f"Graph Fetch Error: {e}")
         return GraphData(nodes=[], links=[])
-    finally:
-        driver.close()
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest):
@@ -221,7 +219,7 @@ async def chat_endpoint(req: ChatRequest):
 
         retriever = GraphRetriever()
         context = retriever.retrieve(req.message)
-        retriever.close()
+        # retriever.close() # Keep driver alive
         
         # If context is empty and we are in genesis phase, just ask the question.
         if not context and next_q:
@@ -456,14 +454,14 @@ async def ingest_file_endpoint(file: UploadFile = File(...)):
             if "layer" not in node: node["layer"] = node.get("label", "Semantic") 
         
         # 4. Ingest
-        ingestor = Neo4jIngestor()
+        ingestor = Neo4jIngestor(driver_override=driver)
         # Ingestor.ingest_batch expects 'relationships' key
         final_data = {
             "nodes": nodes,
             "relationships": relationships
         }
         ingestor.ingest_batch(final_data)
-        ingestor.close()
+        # DO NOT CLOSE: global driver
         
         return {
             "status": "success", 
@@ -496,7 +494,6 @@ class DeleteNodeRequest(BaseModel):
 
 @app.post("/api/node/update")
 async def update_node(req: UpdateNodeRequest):
-    driver = GraphDatabase.driver(URI, auth=AUTH)
     try:
         with driver.session() as session:
             # Check if it's an elementId or our property id
@@ -514,12 +511,9 @@ async def update_node(req: UpdateNodeRequest):
             return {"status": "success", "message": "Node updated"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        driver.close()
 
 @app.post("/api/node/add")
 async def add_node_manual(req: AddNodeRequest):
-    driver = GraphDatabase.driver(URI, auth=AUTH)
     try:
         with driver.session() as session:
             # 1. Create Node
@@ -556,12 +550,9 @@ async def add_node_manual(req: AddNodeRequest):
             return {"status": "success", "message": "Node added", "node_id": normalized_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        driver.close()
 
 @app.post("/api/node/delete")
 async def delete_node_manual(req: DeleteNodeRequest):
-    driver = GraphDatabase.driver(URI, auth=AUTH)
     try:
         with driver.session() as session:
             query = """
@@ -573,8 +564,6 @@ async def delete_node_manual(req: DeleteNodeRequest):
             return {"status": "success", "message": "Node deleted"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        driver.close()
 
 @app.post("/graph/update")
 async def update_graph_dynamic():
