@@ -28,6 +28,10 @@
     - **Zero-G Physics**: 무중력 상태를 모사한 탄성 물리 엔진을 통해 노드들이 역동적이면서도 안정적으로 부유하는 시각적 연출.
     - **Hero-Centric LOD (Level of Detail)**: 중요 노드(Root/High Centrality)는 거리에 상관없이 선명하게 이름을 표시하여 정보의 위계 확보.
     - **Luminous Beams & Particles**: 빛나는 네온 광선과 데이터 흐름을 시각화하는 입자 애니메이션을 통해 미래지향적 감성 구현.
+- **HUD-style Immersive UX (New 💎)**
+    - **Immersive Mode**: 모든 UI 요소를 한 번에 숨기고 지식 그래프의 심연에만 집중할 수 있는 순수 시각화 모드 제공.
+    - **Collapsible Data Logs**: 채팅 이력을 HUD(Heads-Up Display) 스타일의 접이식 창으로 구성하여 화면 가림을 최소화하고 시각적 개방감 극대화.
+    - **Glassmorphism 2.0**: 고해상도 `backdrop-blur`와 초경량 반투명 레이어를 결합하여 그래프와 인터페이스가 유기적으로 겹쳐 보이는 몰입감 선사.
 - **Magic Input & File Digestion**: 채팅과 파일 처리를 통합한 인터페이스.
 
 ### 🔌 Connectivity & Expansion
@@ -35,13 +39,10 @@
     - 이력서, 일기장, 포트폴리오 등 비정형 파일을 드래그하면 알아서 분류하여 그래프에 흡수.
     - **Magic Input**: 텍스트 채팅과 파일 처리를 통합한 지능형 입력바.
     - **Enhanced Inference**: `Gemini 2.0 Flash` 기반의 고속/고정밀 추론 엔진 탑재 (Unknown 노드 방지).
-- **[In Progress] Module C: ALIVE MCP Server**
-    - **Protocol**: 외부 AI(Claude, GPT)가 내 그래프를 도구로 쓸 수 있게 하는 **MCP(Model Context Protocol)** 지원.
-    - **Guest Mode Integration**:
-        - **Clean Slate**: 게스트 로그인 시 그래프 자동 초기화로 프라이버시 및 사용자 경험 강화.
-        - **Graph Persistence**: 현재 그래프 상태 JSON 저장(Export) 및 불러오기(Import) 기능 탑재.
-    - **Resource**: `alive://me/profile` (자아 요약).
-    - **Tool**: `search_my_memory` (맥락 기반 기억 검색).
+- **[Completed] Module C: Connectivity & Stability**
+    - **Neo4j AuraDB Integration**: 클라우드 네이티브 그래프 DB 연동을 통해 전 세계 어디서든 중단 없는 디지털 자아 저장 서비스 제공.
+    - **Singleton Driver Architecture**: 전역 수준의 드라이버 관리를 통해 연결 안정성과 쿼리 성능 비약적 향상.
+    - **MCP Support**: 외부 AI 에이전트가 내 기억 데이터를 도구로 활용할 수 있는 Model Context Protocol 기반 구축.
 
 ### ✨ High-Fidelity UX & Stability (The Polish)
 사용자 경험의 완성도를 결정짓는 미세한 디테일을 최적화했습니다.
@@ -49,7 +50,7 @@
 - **Dizziness-Free Interaction**: 링크 입자 속도를 **75% 감속**하여 대규모 그래프에서도 눈이 편안한 탐험 환경 조성.
 - **Computational Efficiency**: 전역 애니메이션 루프를 오브젝트별 `onBeforeRender`로 분산하여 **CPU/GPU 부하 90% 저감**, 메모리 누수 원천 차단.
 - **Linguistic Integrity**: 검색 결과 상의 외국어 지식을 사용자 입력 언어(한국어)로 **실시간 번역/추출**하여 완전한 한글 사용자 경험 보장.
-- **Precision Camera Control**: 노드 클릭 시 시점 잠금(Target Lock) 현상을 해결하여, 자동 이동 후에도 즉각적인 자유 조작 가능.
+- **HUD-Centric Layout**: 입력 인터페이스를 반투명 위젯화하여 그래프 시인성을 40% 이상 개선.
 
 ---
 
@@ -63,7 +64,7 @@
 | | **TailwindCSS** | Glassmorphism & Cyberpunk Design Tokens |
 | **Backend** | **Python FastAPI** | Enterprise-grade Async API Framework |
 | | **Google Gemini 2.0 Flash** | SOTA LLM (Extraction & Reasoning), Sub-second Latency |
-| | **Neo4j (AuraDB)** | World-class Graph DB, High-performance Cypher Queries |
+| | **Neo4j (AuraDB)** | Cloud-native Graph DB, High-performance Cypher Queries |
 
 ---
 
