@@ -1,6 +1,7 @@
 import os
 import json
 from dotenv import load_dotenv
+import re
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
@@ -17,6 +18,21 @@ llm = ChatGoogleGenerativeAI(
 )
 
 parser = JsonOutputParser()
+
+def contains_hanzi(text):
+    """Detects Chinese characters (Hanzi)."""
+    if not text: return False
+    return bool(re.search(r'[\u4e00-\u9fff]', str(text)))
+
+def contains_latin(text):
+    """Detects Latin/Alphabet characters."""
+    if not text: return False
+    return bool(re.search(r'[a-zA-Z]', str(text)))
+
+def contains_hangul(text):
+    """Detects Korean characters (Hangul)."""
+    if not text: return False
+    return bool(re.search(r'[\uac00-\ud7af]', str(text)))
 
 def extract_graph_elements(text: str, document_date: str = None) -> dict:
     """
@@ -55,9 +71,32 @@ def extract_concept_graph(keyword: str, context_text: str) -> dict:
             print(f"[Extractor] LLM returned unexpected type: {type(result)}. Forcing dict.")
             result = {"nodes": [], "relationships": []}
 
-        # Ensure keys exist
         if 'nodes' not in result: result['nodes'] = []
         if 'relationships' not in result: result['relationships'] = []
+
+        # [ALIVE FIX] Nuclear Language Filter
+        # If the search keyword contains Latin or Korean, we MUST strip Chinese.
+        # This prevents unintended language drift from multi-lingual search contexts.
+        ban_hanzi = contains_latin(keyword) or contains_hangul(keyword)
+        
+        if ban_hanzi:
+            original_nodes = result.get('nodes', [])
+            filtered_nodes = []
+            removed_ids = set()
+            for n in original_nodes:
+                name = n.get('properties', {}).get('name', '') or n.get('name', '')
+                id_str = str(n.get('id', ''))
+                # Strip if name OR id contains Hanzi
+                if contains_hanzi(name) or contains_hanzi(id_str):
+                    print(f"[Extractor] NUCLEAR FILTER: Stripping node with Chinese: {name} (ID: {id_str})")
+                    removed_ids.add(id_str)
+                else:
+                    filtered_nodes.append(n)
+            
+            result['nodes'] = filtered_nodes
+            result['relationships'] = [r for r in result.get('relationships', []) 
+                                      if str(r.get('source') or r.get('from')) not in removed_ids 
+                                      and str(r.get('target') or r.get('to')) not in removed_ids]
 
         # [ALIVE FIX] Post-processing to enforce "One Graph"
         # 1. Normalize ALL node IDs to lowercase to ensure merging (Deduplication).
@@ -146,6 +185,7 @@ def extract_concept_graph(keyword: str, context_text: str) -> dict:
                 "properties": {
                     "name": keyword, 
                     "summary": f"Central concept of {keyword}",
+                    "rationale": f"이 노드는 검색어 '{keyword}' 그 자체이자 모든 지식 확장의 중심점입니다.",
                     "isRoot": True # Explicitly flag as root
                 }
             }

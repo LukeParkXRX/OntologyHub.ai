@@ -123,9 +123,10 @@ def filter_connected_component(nodes: list, links: list, root_id: str = None) ->
         for nid, node in node_map.items():
             name = str(node.get('name', '')).lower()
             topic = str(node.get('topic', '')).lower()
-            # Some IDs might be semantic
-            if rid == nid or rid in name or rid in topic:
+            # fuzzy check
+            if rid == nid or rid == name or rid == topic or rid in name:
                 actual_root_nid = nid
+                print(f"[NetworkStats] Found root semantic match: {rid} -> {nid}")
                 break
     
     # 2. Build NetworkX Graph
@@ -151,9 +152,12 @@ def filter_connected_component(nodes: list, links: list, root_id: str = None) ->
                 print(f"[NetworkStats] Found Root '{actual_root_nid}' in component of size {len(component)}")
                 break
     
+    # 4. Fallback: If root not found, return the Largest Connected Component
     if not target_component:
-        target_component = max(components, key=len)
-        print(f"[NetworkStats] No Root found. Using LCC of size {len(target_component)}")
+        # Sort components by size descending
+        sorted_components = sorted(components, key=len, reverse=True)
+        target_component = sorted_components[0]
+        print(f"[NetworkStats] Target root '{actual_root_nid}' not found in any component. Using LCC of size {len(target_component)}")
     
     filtered_nodes = [n for n in nodes if n['id'] in target_component]
     filtered_links = []
@@ -163,5 +167,5 @@ def filter_connected_component(nodes: list, links: list, root_id: str = None) ->
         if src_id in target_component and tgt_id in target_component:
             filtered_links.append(l)
             
-    print(f"Final Graph: {len(nodes)} -> {len(filtered_nodes)} nodes.")
+    print(f"Final Graph Logic: {len(nodes)} total -> {len(filtered_nodes)} in target component.")
     return {"nodes": filtered_nodes, "links": filtered_links}

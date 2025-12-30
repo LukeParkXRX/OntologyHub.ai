@@ -4,13 +4,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Use 'ssc' if needed based on our troubleshooting
-URI = os.getenv("NEO4J_URI", "neo4j+ssc://localhost:7687") 
+URI = os.getenv("NEO4J_URI", "neo4j+ssc://b60a0727.databases.neo4j.io")
+
+print(f"[Ingestor] Using URI: {URI}")
 AUTH = (os.getenv("NEO4J_USERNAME"), os.getenv("NEO4J_PASSWORD"))
 
 class Neo4jIngestor:
-    def __init__(self):
-        self.driver = GraphDatabase.driver(URI, auth=AUTH)
+    def __init__(self, driver_override=None):
+        self.driver = driver_override or GraphDatabase.driver(URI, auth=AUTH)
 
     def close(self):
         self.driver.close()

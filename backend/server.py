@@ -58,7 +58,19 @@ app.add_middleware(
 
 # --- Neo4j Config ---
 URI = os.getenv("NEO4J_URI", "neo4j+ssc://b60a0727.databases.neo4j.io")
+
+# [ALIVE DEBUG] Log URI during startup
+print(f"[Neo4j] Using URI: {URI}")
+
 AUTH = (os.getenv("NEO4J_USERNAME"), os.getenv("NEO4J_PASSWORD"))
+
+# Global Driver for efficiency and stability
+driver = None
+try:
+    driver = GraphDatabase.driver(URI, auth=AUTH)
+    print("[Neo4j] Driver initialized.")
+except Exception as e:
+    print(f"[Neo4j] Driver initialization FAILED: {e}")
 
 # --- Endpoints ---
 
@@ -68,7 +80,6 @@ async def get_graph():
     Returns the whole graph for 3D visualization.
     Format is compatible with react-force-graph-3d.
     """
-    driver = GraphDatabase.driver(URI, auth=AUTH)
     
     # [ALIVE] Strict Mode: Only fetch nodes explicitly tagged as 'user' identity.
     # This prevents junk/test data from polluting the view.
@@ -155,7 +166,6 @@ async def chat_endpoint(req: ChatRequest):
         from actions.interviewer import GenesisInterviewer
         
         # 1. Check User Context & Stats (Find "Me" node and neighbor counts)
-        driver = GraphDatabase.driver(URI, auth=AUTH)
         user_node = None
         graph_stats = {}
         
@@ -176,7 +186,6 @@ async def chat_endpoint(req: ChatRequest):
                 all_labels = [lbl for sublist in record["neighbor_labels"] for lbl in sublist]
                 for lbl in all_labels:
                     graph_stats[lbl] = graph_stats.get(lbl, 0) + 1
-        driver.close()
 
         # 2. Determine Next Question (Genesis Logic)
         interviewer = GenesisInterviewer()
@@ -203,9 +212,9 @@ async def chat_endpoint(req: ChatRequest):
                     node["properties"]["layer"] = node.get("layer", "Semantic")
                 
                 # Ingest to DB
-                ingestor = Neo4jIngestor()
+                ingestor = Neo4jIngestor(driver_override=driver)
                 ingestor.ingest_batch(extracted_data)
-                ingestor.close()
+                # DO NOT CLOSE: global driver
                 print("Auto-Ingestion Complete.")
         except Exception as ingest_err:
             print(f"Auto-Ingest Warning: {ingest_err}")
@@ -236,9 +245,8 @@ async def ingest_endpoint(req: IngestRequest):
     try:
         graph_data = extract_graph_elements(req.text)
         if graph_data.get("nodes"):
-            ingestor = Neo4jIngestor()
+            ingestor = Neo4jIngestor(driver_override=driver)
             ingestor.ingest_batch(graph_data)
-            ingestor.close()
             return {"status": "success", "message": "Data ingested successfully.", "data": graph_data}
         else:
             return {"status": "warning", "message": "No entities extracted."}
@@ -248,15 +256,13 @@ async def ingest_endpoint(req: IngestRequest):
 @app.delete("/graph")
 async def reset_graph():
     """Resets the entire database"""
-    driver = GraphDatabase.driver(URI, auth=AUTH)
     try:
         with driver.session() as session:
             session.run("MATCH (n) DETACH DELETE n")
         return {"status": "success", "message": "Graph database reset successfully."}
     except Exception as e:
+        print(f"Reset Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        driver.close()
 
 @app.post("/auth/ingest")
 async def ingest_auth_profile(req: AuthIngestRequest):
@@ -285,7 +291,7 @@ async def ingest_auth_profile(req: AuthIngestRequest):
         }
         
         # Ingest
-        ingestor = Neo4jIngestor()
+        ingestor = Neo4jIngestor(driver_override=driver)
         
         # Construct graph_data for batch ingestion
         graph_data = {
@@ -294,7 +300,6 @@ async def ingest_auth_profile(req: AuthIngestRequest):
         }
         
         ingestor.ingest_batch(graph_data)
-        ingestor.close()
         
         return {"status": "success", "message": "Auth profile ingested."}
     except Exception as e:
@@ -330,30 +335,30 @@ async def ingest_search_endpoint(req: IngestRequest):
             node["properties"]["source"] = "concept"
             
         print(f"Ingesting {len(nodes)} nodes and {len(relationships)} relationships into Neo4j...")
-        ingestor = Neo4jIngestor()
+        ingestor = Neo4jIngestor(driver_override=driver)
         ingestor.ingest_batch(extracted_data)
-        ingestor.close()
 
         # 5. Retrieve Combined Graph (AI + User Data)
         nodes_map = {}
         links = []
         
-        # Optimized Neighborhood Query (Fetch 1-hop around keyword)
+        # [ALIVE FIX] Precise neighborhood fetch.
+        # Prioritize exact ID match, then fall back to flexible name match.
+        normalized_keyword = keyword.lower().strip().replace(" ", "_")
         query = """
         MATCH (start)
-        WHERE toLower(start.name) CONTAINS toLower($keyword) 
-           OR toLower(start.topic) CONTAINS toLower($keyword)
-           OR toLower(start.id) CONTAINS toLower($keyword)
+        WHERE start.id = $norm_keyword 
+           OR toLower(start.name) = toLower($keyword)
+           OR toLower(start.name) CONTAINS toLower($keyword)
         
         MATCH (start)-[r]-(neighbor)
         RETURN start, r, neighbor
         LIMIT 500
         """
         
-        print(f"[Search] Fetching neighborhood for: {keyword}")
-        driver = GraphDatabase.driver(URI, auth=AUTH)
+        print(f"[Search] Fetching neighborhood for: {keyword} (normalized: {normalized_keyword})")
         with driver.session() as session:
-            result = session.run(query, keyword=keyword)
+            result = session.run(query, keyword=keyword, norm_keyword=normalized_keyword)
             # Use list() to avoid issues with double iteration or session closing
             records = list(result)
             print(f"[Search] DB Query returned {len(records)} records.")
@@ -399,13 +404,14 @@ async def ingest_search_endpoint(req: IngestRequest):
                     "name": r_type
                 })
         
-        driver.close()
         # 6. Apply Network Analysis (Force Keyword as Root)
         raw_nodes = list(nodes_map.values())
         enriched_data = enrich_graph_data(raw_nodes, links, root_id=keyword)
         
         # 7. [ALIVE] Filter for Connected Component containing root
-        final_data = filter_connected_component(enriched_data["nodes"], enriched_data["links"], root_id=keyword)
+        # CRITICAL FIX: root_id must be normalized to match the IDs in nodes/links
+        normalized_root_id = keyword.lower().strip().replace(" ", "_")
+        final_data = filter_connected_component(enriched_data["nodes"], enriched_data["links"], root_id=normalized_root_id)
         
         return {
             "status": "success", 
@@ -479,6 +485,15 @@ class UpdateNodeRequest(BaseModel):
     id: str  # element_id or normalized id
     properties: Dict[str, Any]
 
+class AddNodeRequest(BaseModel):
+    parent_id: Optional[str] = None
+    name: str
+    label: str = "Concept"
+    layer: str = "Semantic"
+
+class DeleteNodeRequest(BaseModel):
+    id: str
+
 @app.post("/api/node/update")
 async def update_node(req: UpdateNodeRequest):
     driver = GraphDatabase.driver(URI, auth=AUTH)
@@ -497,6 +512,65 @@ async def update_node(req: UpdateNodeRequest):
             if not record:
                 raise HTTPException(status_code=404, detail="Node not found")
             return {"status": "success", "message": "Node updated"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        driver.close()
+
+@app.post("/api/node/add")
+async def add_node_manual(req: AddNodeRequest):
+    driver = GraphDatabase.driver(URI, auth=AUTH)
+    try:
+        with driver.session() as session:
+            # 1. Create Node
+            # We'll generate a normalized ID from the name
+            normalized_id = req.name.lower().strip().replace(" ", "_")
+            
+            # Step 1: Create the node
+            query = """
+            MERGE (n:Concept {id: $id})
+            ON CREATE SET n += $props
+            ON MATCH SET n += $props
+            RETURN n
+            """
+            props = {
+                "id": normalized_id,
+                "name": req.name,
+                "layer": req.layer,
+                "source": "user",
+                "creation_date": "2025-12-29" # Should be dynamic ideally
+            }
+            session.run(query, id=normalized_id, props=props)
+
+            # Step 2: Link to parent if provided
+            if req.parent_id:
+                link_query = """
+                MATCH (a), (b)
+                WHERE (elementId(a) = $pid OR a.id = $pid)
+                  AND (elementId(b) = $cid OR b.id = $cid)
+                MERGE (a)-[r:RELATED]->(b)
+                RETURN r
+                """
+                session.run(link_query, pid=req.parent_id, cid=normalized_id)
+
+            return {"status": "success", "message": "Node added", "node_id": normalized_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        driver.close()
+
+@app.post("/api/node/delete")
+async def delete_node_manual(req: DeleteNodeRequest):
+    driver = GraphDatabase.driver(URI, auth=AUTH)
+    try:
+        with driver.session() as session:
+            query = """
+            MATCH (n)
+            WHERE elementId(n) = $id OR n.id = $id
+            DETACH DELETE n
+            """
+            session.run(query, id=req.id)
+            return {"status": "success", "message": "Node deleted"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:

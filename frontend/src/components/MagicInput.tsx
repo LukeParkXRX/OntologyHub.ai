@@ -75,10 +75,10 @@ export default function MagicInput({ onSendMessage, onFileUpload, isProcessing =
             <form
                 onSubmit={handleSubmit}
                 className={`
-          flex items-end gap-2 p-2 rounded-2xl
-          bg-[#1E1F20]/80 backdrop-blur-md border border-white/10
-          focus-within:border-white/20 focus-within:bg-[#1E1F20]
-          shadow-lg transition-all duration-200
+          flex items-end gap-2 p-1.5 rounded-2xl
+          bg-[#030712]/40 backdrop-blur-xl border border-white/5
+          focus-within:border-white/20 focus-within:bg-[#030712]/60
+          shadow-2xl transition-all duration-300
         `}
             >
                 {/* File Trigger Button */}
@@ -103,8 +103,8 @@ export default function MagicInput({ onSendMessage, onFileUpload, isProcessing =
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder={isProcessing ? "Absorbing..." : "Type a message or drop a file to add memory..."}
-                    className="w-full bg-transparent text-gray-100 placeholder-gray-500 p-3 max-h-32 resize-none focus:outline-none text-[15px] leading-relaxed scrollbar-hide"
+                    placeholder={isProcessing ? "Absorbing Stream..." : "Input concept or drop file..."}
+                    className="w-full bg-transparent text-gray-200 placeholder-gray-600 p-3 max-h-32 resize-none focus:outline-none text-[14px] leading-relaxed scrollbar-hide font-light"
                     rows={1}
                     style={{ minHeight: '44px' }}
                     disabled={isProcessing}
@@ -115,17 +115,17 @@ export default function MagicInput({ onSendMessage, onFileUpload, isProcessing =
                     type="submit"
                     disabled={!message.trim() || isProcessing}
                     className={`
-            p-3 rounded-full transition-all duration-200
+            p-3 rounded-xl transition-all duration-300
             ${message.trim() && !isProcessing
-                            ? 'bg-blue-600 text-white shadow-blue-500/30 shadow-md hover:bg-blue-500'
-                            : 'bg-white/5 text-gray-500 cursor-not-allowed'
+                            ? 'bg-blue-600/20 text-blue-400 border border-blue-500/50 shadow-lg shadow-blue-500/10 hover:bg-blue-600/40 hover:text-white'
+                            : 'bg-white/5 text-gray-600 cursor-not-allowed'
                         }
           `}
                 >
                     {isProcessing ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
                     ) : (
-                        <Send className="w-5 h-5 ml-0.5" />
+                        <Send className="w-5 h-5" />
                     )}
                 </button>
             </form>

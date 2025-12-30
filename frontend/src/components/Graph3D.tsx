@@ -28,7 +28,12 @@ interface Graph3DProps {
 const SHARED_SPHERE_GEO = new THREE.SphereGeometry(1, 24, 24);
 const SHARED_SHELL_GEO = new THREE.IcosahedronGeometry(1, 0);
 
-const Graph3D = forwardRef((props: Graph3DProps, ref) => {
+interface Graph3DRef {
+    fgRef: React.RefObject<any>;
+    graph2ScreenCoords: (x: number, y: number, z: number) => { x: number, y: number } | null;
+}
+
+const Graph3D = forwardRef<Graph3DRef, Graph3DProps>((props, ref) => {
     const { data, onNodeClick, arrangeTrigger, highlightNodes, selectedNodeId } = props;
     const fgRef = useRef<any>(null);
 
@@ -79,16 +84,29 @@ const Graph3D = forwardRef((props: Graph3DProps, ref) => {
 
     // Physics Engine Setup
     useEffect(() => {
+        if (!fgRef.current) return;
         const fg = fgRef.current;
-        if (!fg) return;
         const timer = setTimeout(() => {
             if (!fgRef.current) return;
-            fgRef.current.d3Force('charge')?.strength(-1000);
-            fgRef.current.d3Force('link')?.distance(130);
-            fgRef.current.d3VelocityDecay(0.7);
-            fgRef.current.d3AlphaDecay(0.04);
-            fgRef.current.d3ReheatSimulation();
-        }, 600);
+            // [MANDALA LAYOUT]
+            // Multi-layered force system for symmetric density
+            import('d3').then(d3 => {
+                // 1. Strong Center Pull (Universe Heart)
+                fgRef.current.d3Force?.('radial', d3.forceRadial(0, 0, 0).strength(0.8));
+
+                // 2. Collision Resistance (Mandala Density)
+                // Prevents nodes from overlapping even when pulled strongly to center
+                fgRef.current.d3Force?.('collide', d3.forceCollide(20).iterations(2));
+            });
+
+            fgRef.current.d3Force?.('charge')?.strength?.(-400); // Tighter charge for density
+            fgRef.current.d3Force?.('link')?.distance?.(60);     // Very short links for cluster feel
+
+            // [ORGANIC FLOW FIX] Avoid abrupt alpha=1 spikes which cause jitter.
+            // Using a lower alpha reset (0.4) for a more graceful rearrangement.
+            fgRef.current.d3AlphaTarget?.(0.01);
+            fgRef.current.d3ReheatSimulation?.();
+        }, 800);
         return () => clearTimeout(timer);
     }, [cleanData]);
 
@@ -111,12 +129,25 @@ const Graph3D = forwardRef((props: Graph3DProps, ref) => {
 
     const nodeObject = useCallback((node: any) => {
         const group = new THREE.Group();
-        const isRoot = node.isRoot || node.properties?.isRoot || node.id === (node.keyword || '');
+        const isRoot = node.isRoot || node.properties?.isRoot || node.id === (node.keyword || '') || node.layer === 'Identity';
         const isSelected = node.id === selectedNodeId;
-        const hasHeritage = node.generationSource === selectedNodeId && selectedNodeId;
 
-        let color = isRoot ? '#ffffff' : (node.group === 1 ? '#00f0ff' : '#a855f7');
-        if (isSelected) color = '#f97316';
+        // 1. Heritage-based Color (Mandala Chromatic Coding)
+        let color = '#ffffff';
+        if (isRoot) {
+            color = '#ffffff'; // The Heart
+        } else {
+            const heritage = node.generationSource || 'default';
+            // Simple hash for consistent hue
+            let hash = 0;
+            for (let i = 0; i < heritage.length; i++) {
+                hash = heritage.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const hue = Math.abs(hash % 360);
+            color = `hsl(${hue}, 80%, 65%)`; // Vibrant Mandalay Palette
+        }
+
+        if (isSelected) color = '#f97316'; // Focus orange
 
         const baseSize = 4.5;
         const scaleFactor = Math.min(2.5, 1 + (node.connections || 0) * 0.15);
@@ -211,7 +242,9 @@ const Graph3D = forwardRef((props: Graph3DProps, ref) => {
                 graphData={cleanData}
                 nodeLabel="name"
                 showNavInfo={false}
-                cooldownTicks={100}
+                d3VelocityDecay={0.5} // Higher dampening to prevent jitter (Organic Flow)
+                d3AlphaDecay={0.015}  // Much slower settling for liquid-like movement
+                cooldownTicks={1000}  // Allow longer settling time
 
                 // Node Props
                 nodeThreeObject={nodeObject}

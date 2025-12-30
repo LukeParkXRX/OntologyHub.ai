@@ -46,9 +46,11 @@ Your task is to extract structured entities and relationships from the user's in
    - Do not create empty or disconnected nodes.
 5. **Entity Resolution**:
    - Resolve "I", "Me", "My" to the central user identity node (default ID: "user", Label: "Person", Name: "Me" or User's Name).
-6. **Language Consistency**:
-   - Use the **SAME language** as the input text for all `name` and `summary` properties.
-   - Forbid technical IDs/snake_case in `properties.name`.
+6. **Language Consistency (ABSOLUTE & UNBREAKABLE RULE)**:
+   - Identify the language of the input text (e.g., Korean). Use ONLY that language for all `name` and `summary` properties.
+   - **NO CHINESE/FOREIGN DRIFT**: Forbidden to use Chinese characters (Hanzi) or any language other than the input's language for display properties.
+   - **MANDATORY TRANSLATION**: If the text contains mixed languages, translate everything into the DOMINANT language of the input (default: Korean).
+   - **NO SNAKE_CASE**: Properties `name` must be clean, human-readable titles.
 
 ### Output Format (JSON)
 Return valid JSON with `nodes` and `relationships`.
@@ -97,10 +99,23 @@ Construct a **Dense, Interconnected Ontology Graph** that defines *what* "KEYWOR
 1. **Central Identifier**: You MUST create a CENTRAL node for "KEYWORD_PLACEHOLDER".
    - **ID Normalization**: The ID of this central node MUST be exactly "KEYWORD_PLACEHOLDER" (or a normalized version).
    
-2. **Essence & Definition (High Priority)**:
-   - Identify the *fundamental nature* of the concept.
-   - Example relations: `(:Concept)-[:FOUNDED_BY]->(:Person)`, `(:Concept)-[:OPERATES_IN]->(:Industry)`, `(:Concept)-[:ACQUIRED]->(:Organization)`.
-   - **IGNORE**: Random trivia or minor mentions. Focus on defining facts.
+### Intelligence Protocol (STRICT)
+
+1. **Semantic Anchoring & Archetype Thinking**:
+   - Before extracting, identify the **archetype** of "KEYWORD_PLACEHOLDER".
+   - (e.g., "Superman" -> Archetype: "Legendary Superhero Character").
+   - Filter all context through this archetype. 
+
+2. **Noise Suppression (THE FONT/WEB FILTER)**:
+   - **IGNORE** search-engine noise: fonts, download sites, file formats (.ttf), licensing, specific URLs, social media handles, or commercial merchandise metadata.
+   - **IGNORE** random trivia that doesn't define the *being* of the concept.
+   - If the context is a mix of "Superman the character" and "Superman fonts", **ONLY extract "Superman the character"**.
+
+3. **Existential Essence (MANDATORY)**:
+   - Identify the **defining attributes** that constitute the very existence of "KEYWORD_PLACEHOLDER".
+   - Extract **8 to 15 high-quality defining nodes**.
+   - **PRIORITIZE EXISTENTIAL TRUTH**: Focus on nodes that define *Identity*, *Genesis (Origins)*, *Core Mechanism*, and *Cultural Significance*.
+   - **RATIONALE MANDATE**: For every node, you MUST provide a property called `rationale` that explains: "This node is included because [reasoning related to the keyword]".
 
 3. **STRICT RELATIONSHIP TYPES (NO GENERIC LABELS)**:
    - **FORBIDDEN**: `RELATED`, `ASSOCIATED_WITH`, `DEFINES`, `LINKED_TO`, `CONNECTION`.
@@ -112,25 +127,27 @@ Construct a **Dense, Interconnected Ontology Graph** that defines *what* "KEYWOR
     - **NO DISCONNECTED NODES**: Ensure every node is reachable.
    - **Triangle Closure**: Connect related nodes to EACH OTHER. 
 
-6. **Language Consistency (ABSOLUTE RULE)**:
-   - Match the language of the **"KEYWORD_PLACEHOLDER"**. 
-   - If the KEYWORD is in Korean, the entire output (names, summaries) MUST be in **Korean**.
-   - **TRANSLATION REQUIRED**: Even if the `CONTEXT_PLACEHOLDER` is in English, you MUST translate all extracted entities and summaries into the language of the **KEYWORD**.
-   - **NO SNAKE_CASE**: Properties `name` must be clean titles (e.g., "Disney Land", not "disney_land").
-   - **FORBIDDEN**: Do not mix languages. If the user asks in Korean, give 100% Korean.
+6. **Language Consistency (NUCLEAR BAN ON UNRELATED LANGUAGES)**:
+   - **DETECT & MATCH**: The target language is derived from "KEYWORD_PLACEHOLDER".
+   - **NO CHINESE DRIFT**: If "KEYWORD_PLACEHOLDER" is in Korean or English, YOU ARE STRICTLY FORBIDDEN FROM PRODUCING CHINESE CHARACTERS (Hanzi).
+   - **MANDATORY TRANSLATION**: Every label and summary MUST be in the target language. Use English only in parentheses for proper nouns.
+   - **NO "Unknown"**: Do not output nodes named "Unknown".
 
 ### Search Context:
 CONTEXT_PLACEHOLDER
 
 ### Output Format (JSON):
 Return valid JSON with `nodes` and `relationships`. 
+   - `nodes`: List of objects with `id`, `label` (e.g., "Person", "Concept"), `layer` (e.g., "Semantic", "Temporal"), and `properties` (must include `name`, `summary` and **`rationale`**).
+     - **`rationale`**: A 1-sentence explanation of WHY this node is essential to the "KEYWORD_PLACEHOLDER" ontology.
+   - `relationships`: List of objects with `from` (source node ID), `to` (target node ID), `type` (relationship type), and optional `properties`.
 
 Example for keyword "이재명" (if context is Korean):
 {
   "nodes": [
-    {"id": "lee_jae_myung", "label": "Person", "layer": "Semantic", "properties": {"name": "이재명", "summary": "대한민국의 정치인, 제22대 국회의원"}},
-    {"id": "democratic_party", "label": "Organization", "layer": "Semantic", "properties": {"name": "더불어민주당"}},
-    {"id": "gyeonggi_province", "label": "Place", "layer": "Semantic", "properties": {"name": "경기도"}}
+    {"id": "lee_jae_myung", "label": "Person", "layer": "Semantic", "properties": {"name": "이재명", "summary": "대한민국의 정치인, 제22대 국회의원", "rationale": "이재명은 핵심 키워드 그 자체입니다."}},
+    {"id": "democratic_party", "label": "Organization", "layer": "Semantic", "properties": {"name": "더불어민주당", "summary": "이재명이 소속된 정당", "rationale": "이재명의 정치적 소속을 나타냅니다."}},
+    {"id": "gyeonggi_province", "label": "Place", "layer": "Semantic", "properties": {"name": "경기도", "summary": "이재명이 도지사를 역임한 지역", "rationale": "이재명의 주요 경력을 설명합니다."}}
   ],
   "relationships": [
     {"from": "lee_jae_myung", "to": "democratic_party", "type": "MEMBER_OF"},

@@ -32,6 +32,10 @@ const nextConfig: NextConfig = {
         source: '/api/auth/ingest',
         destination: 'http://127.0.0.1:8000/auth/ingest',
       },
+      {
+        source: '/api/node/:path*',
+        destination: 'http://127.0.0.1:8000/api/node/:path*',
+      },
     ];
   },
 };
