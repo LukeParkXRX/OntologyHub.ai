@@ -2,22 +2,11 @@ import os
 import json
 from dotenv import load_dotenv
 import re
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import PromptTemplate
-from langchain_core.output_parsers import JsonOutputParser
 from .extractor_prompt import get_extraction_prompt, get_concept_extraction_prompt
+import google.generativeai as genai
 
 # Load environment variables
 load_dotenv()
-
-# Configure LLM
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash", # Latest stable and high performance
-    google_api_key=os.getenv("GEMINI_API_KEY"),
-    temperature=0
-)
-
-parser = JsonOutputParser()
 
 def contains_hanzi(text):
     """Detects Chinese characters (Hanzi)."""
@@ -34,34 +23,47 @@ def contains_hangul(text):
     if not text: return False
     return bool(re.search(r'[\uac00-\ud7af]', str(text)))
 
+# Configure LLM
+api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+genai.configure(api_key=api_key)
+model = genai.GenerativeModel('gemini-3-flash')
+
 def extract_graph_elements(text: str, document_date: str = None) -> dict:
     """
-    Extracts graph nodes and relationships from text using Google Gemini (LangChain).
+    Extracts graph nodes and relationships from text using Google Gemini SDK.
     """
     try:
         raw_prompt = get_extraction_prompt(text, document_date)
-        prompt = PromptTemplate.from_template("{input}")
+        response = model.generate_content(
+            raw_prompt,
+            generation_config=genai.types.GenerationConfig(
+                response_mime_type="application/json",
+            )
+        )
         
-        chain = prompt | llm | parser
-        
-        result = chain.invoke({"input": raw_prompt})
+        # Parse JSON response
+        result = json.loads(response.text)
         return result
         
     except Exception as e:
-        print(f"Error during extraction with Gemini: {e}")
+        print(f"Error during extraction with Gemini SDK: {e}")
         return {"nodes": [], "relationships": []}
 
 def extract_concept_graph(keyword: str, context_text: str) -> dict:
     """
-    Extracts concept ontology from web search context using Gemini (LangChain).
+    Extracts concept ontology from web search context using Gemini SDK.
     """
     try:
         raw_prompt = get_concept_extraction_prompt(keyword, context_text)
-        prompt = PromptTemplate.from_template("{input}")
+        response = model.generate_content(
+            raw_prompt,
+            generation_config=genai.types.GenerationConfig(
+                response_mime_type="application/json",
+            )
+        )
         
-        chain = prompt | llm | parser
-        
-        result = chain.invoke({"input": raw_prompt})
+        # Parse JSON response
+        result = json.loads(response.text)
         
         if result is None:
             print("[Extractor] LLM returned None. Falling back to empty graph.")

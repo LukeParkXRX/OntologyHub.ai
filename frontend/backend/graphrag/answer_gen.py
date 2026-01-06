@@ -17,7 +17,7 @@ def generate_answer(question: str, context: str) -> str:
     Synthesizes an answer using Gemini given the retrieved context.
     """
     try:
-        model = genai.GenerativeModel('gemini-3-flash-preview')
+        model = genai.GenerativeModel('gemini-3-flash')
         
         prompt = f"""{ANSWER_SYSTEM_PROMPT}
 

@@ -712,6 +712,13 @@ export default function Home() {
                     </div>
                 )}
             </div>
+
+            {/* Reflection Test Overlay */}
+            <div className="fixed inset-0 z-[9999] pointer-events-none flex items-center justify-center">
+                <h1 className="text-[12vw] font-black text-white/10 uppercase tracking-tighter select-none rotate-[-10deg]">
+                    test
+                </h1>
+            </div>
         </main>
     );
 }
