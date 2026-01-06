@@ -26,7 +26,7 @@ def contains_hangul(text):
 # Configure LLM
 api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 genai.configure(api_key=api_key)
-model = genai.GenerativeModel('gemini-3-flash')
+model = genai.GenerativeModel('gemini-3-flash-preview')
 
 def extract_graph_elements(text: str, document_date: str = None) -> dict:
     """
