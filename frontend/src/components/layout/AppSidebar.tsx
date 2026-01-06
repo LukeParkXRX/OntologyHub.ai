@@ -35,11 +35,14 @@ export function AppSidebar({ currentMode, onModeChange, onReset, isGraphActive }
         <aside className="fixed left-4 top-4 bottom-4 w-64 rounded-2xl flex flex-col z-50 overflow-hidden transition-all duration-500 bg-[#030712]/40 backdrop-blur-xl border border-white/10 shadow-2xl">
             {/* Header */}
             <div className="p-6 border-b border-white/10">
-                <h1 className="text-xl font-bold tracking-wider text-white flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_10px_#3b82f6]" />
-                    OntologyHub<span className="text-blue-400">.ai</span>
-                </h1>
-                <p className="text-xs text-gray-400 mt-1 pl-4">Interactive Knowledge Verse</p>
+                <div className="flex items-center justify-between mb-1">
+                    <h1 className="text-xl font-bold tracking-wider text-white flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_10px_#3b82f6]" />
+                        OntologyHub<span className="text-blue-400">.ai</span>
+                    </h1>
+                    <span className="px-2 py-0.5 rounded bg-cyan-500/20 border border-cyan-500/30 text-[10px] font-black text-cyan-400 tracking-tighter">XRX</span>
+                </div>
+                <p className="text-[10px] text-blue-400/60 font-mono tracking-[0.2em] uppercase pl-4">NEURAL INTERFACE V2.0</p>
             </div>
 
             {/* Main Navigation */}
