@@ -14,4 +14,4 @@ python-dotenv
 requests
 networkx
 duckduckgo_search
-oogle.generativeai
+google.generativeai
