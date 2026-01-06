@@ -22,7 +22,7 @@ from neo4j import GraphDatabase
 
 
 # Load Env
-load_dotenv()
+load_dotenv(override=True)
 
 # --- Models ---
 class ChatRequest(BaseModel):
@@ -57,7 +57,7 @@ app.add_middleware(
 )
 
 # --- Neo4j Config ---
-URI = os.getenv("NEO4J_URI", "neo4j+ssc://b60a0727.databases.neo4j.io")
+URI = os.getenv("NEO4J_URI", "neo4j+s://1a1d8907.databases.neo4j.io")
 
 # [ALIVE DEBUG] Log URI during startup
 print(f"[Neo4j] Using URI: {URI}")
